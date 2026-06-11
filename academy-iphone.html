@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Academy Pro">
+<meta name="theme-color" content="#07090f">
+<title>Academy Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{
+  height:100%;
+  /* iOS Safari: prevent text size adjust on rotation */
+  -webkit-text-size-adjust:100%;
+}
+body{
+  font-family:'Noto Sans KR',sans-serif;
+  background:#07090f;
+  color:#e6ecf8;
+  /* dvh = dynamic viewport height (excludes Safari toolbar) */
+  height:100dvh;
+  height:100vh; /* fallback */
+  overflow:hidden;
+  position:fixed; /* iOS: prevent body scroll causing layout shift */
+  width:100%;
+  top:0;left:0;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── CSS Variables ── */
+:root{
+  --bg:#07090f;
+  --bg2:#0c1018;
+  --surf:#111620;
+  --surf2:#171e2c;
+  --surf3:#1d2638;
+  --bdr:#1f2d40;
+  --bdr2:#2a3c52;
+  --txt:#e6ecf8;
+  --txt2:#7a8fa8;
+  --txt3:#3d5068;
+  --grn:#22c55e;
+  --grn2:#16a34a;
+  --grn3:#052e16;
+  --org:#f97316;
+  --red:#ef4444;
+  --blu:#3b82f6;
+  --ylw:#eab308;
+  --pur:#a855f7;
+  /* Safe areas for iPhone notch/home bar */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --nav-h: 56px;
+  --hdr-h: 52px;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:0;height:0;display:none}
+
+/* ── App Shell ── */
+#shell{
+  display:flex;
+  flex-direction:column;
+  /* Use dvh with vh fallback */
+  height:100dvh;
+  height:100vh;
+  /* Respect safe areas */
+  padding-top:var(--sat);
+  padding-left:var(--sal);
+  padding-right:var(--sar);
+}
+
+/* ── Header ── */
+#hdr{
+  height:var(--hdr-h);
+  background:var(--surf);
+  border-bottom:1px solid var(--bdr);
+  display:flex;
+  align-items:center;
+  padding:0 16px;
+  gap:12px;
+  flex-shrink:0;
+  position:relative;
+  z-index:20;
+}
+.hdr-logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:20px;
+  letter-spacing:3px;
+  color:var(--grn);
+  flex-shrink:0;
+}
+.hdr-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:20px;
+  letter-spacing:2px;
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  pointer-events:none;
+}
+.hdr-right{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* ── Content area ── */
+#page{
+  flex:1;
+  /* Critical: overflow:auto + -webkit-overflow-scrolling for iOS momentum scroll */
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  /* Bottom padding = nav height + home bar */
+  padding-bottom:calc(var(--nav-h) + var(--sab));
+  position:relative;
+}
+
+/* ── Bottom Nav ── */
+#nav{
+  height:calc(var(--nav-h) + var(--sab));
+  padding-bottom:var(--sab);
+  background:var(--surf);
+  border-top:1px solid var(--bdr);
+  display:flex;
+  flex-shrink:0;
+  position:relative;
+  z-index:20;
+}
+.nav-tab{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  cursor:pointer;
+  border:none;
+  background:none;
+  color:var(--txt3);
+  font-size:9px;
+  font-family:'Noto Sans KR',sans-serif;
+  font-weight:600;
+  letter-spacing:.3px;
+  padding:8px 2px 4px;
+  transition:color .15s;
+  /* Min touch target 44x44 per Apple HIG */
+  min-height:44px;
+  -webkit-tap-highlight-color:transparent;
+}
+.nav-tab .ico{font-size:19px;line-height:1;transition:transform .15s}
+.nav-tab.on{color:var(--grn)}
+.nav-tab.on .ico{transform:scale(1.12)}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  /* font-size >= 16px prevents iOS auto-zoom */
+  font-size:16px;
+  font-weight:700;font-family:'Noto Sans KR',sans-serif;
+  cursor:pointer;border:none;border-radius:10px;
+  padding:11px 20px;transition:opacity .12s,transform .12s;
+  -webkit-tap-highlight-color:transparent;
+  /* min 44pt touch target */
+  min-height:44px;
+}
+.btn:active{opacity:.75;transform:scale(.97)}
+.btn-g{background:linear-gradient(135deg,var(--grn2),var(--grn));color:#fff}
+.btn-s{background:var(--surf2);color:var(--txt2);border:1px solid var(--bdr)}
+.btn-d{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.18)}
+.btn-sm{font-size:13px;padding:8px 14px;min-height:36px}
+.btn-xs{font-size:12px;padding:5px 11px;min-height:32px;border-radius:8px}
+
+/* ── Badge ── */
+.badge{
+  display:inline-flex;align-items:center;
+  padding:2px 8px;border-radius:20px;
+  font-size:10px;font-weight:700;letter-spacing:.3px;
+}
+
+/* ── Card ── */
+.card{
+  background:var(--surf);
+  border:1px solid var(--bdr);
+  border-radius:14px;
+}
+
+/* ── Horizontal scroll strip ── */
+.hscroll{
+  display:flex;gap:10px;
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:14px 16px;
+  /* Prevent scroll chaining */
+  overscroll-behavior-x:contain;
+}
+.hscroll::-webkit-scrollbar{display:none}
+
+/* ── Stat card ── */
+.stat-card{
+  background:var(--surf);border:1px solid var(--bdr);border-radius:14px;
+  padding:14px 15px;flex-shrink:0;min-width:120px;
+}
+.stat-ico{font-size:18px;margin-bottom:6px}
+.stat-lbl{font-size:9px;color:var(--txt3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px}
+.stat-val{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;letter-spacing:1px}
+.stat-sub{font-size:10px;color:var(--txt3);margin-top:3px}
+
+/* ── Section ── */
+.sec{padding:14px 16px}
+.sec-title{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:10px}
+
+/* ── Member row ── */
+.mrow{
+  display:flex;align-items:center;gap:11px;
+  padding:12px 16px;
+  border-bottom:1px solid rgba(31,45,64,.6);
+  cursor:pointer;
+  /* Active state for iOS (no :hover) */
+  -webkit-tap-highlight-color:rgba(22,163,74,.06);
+  transition:background .1s;
+}
+.mrow:active{background:var(--surf2)}
+.mrow:last-child{border-bottom:none}
+.ava{
+  width:40px;height:40px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;flex-shrink:0;
+}
+.minfo{flex:1;min-width:0}
+.mname{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.msub{font-size:11px;color:var(--txt2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mright{text-align:right;flex-shrink:0}
+.mfee{font-size:12px;font-weight:700;margin-bottom:2px}
+.mpaid{font-size:10px;font-weight:700}
+
+/* ── Search ── */
+.search-box{
+  padding:10px 16px;
+  background:var(--surf);border-bottom:1px solid var(--bdr);
+  position:sticky;top:0;z-index:10;
+}
+.search-inner{position:relative}
+.search-inner input{
+  width:100%;
+  /* 16px prevents iOS zoom! */
+  font-size:16px;
+  font-family:'Noto Sans KR',sans-serif;
+  background:var(--surf2);border:1px solid var(--bdr);color:var(--txt);
+  border-radius:10px;padding:10px 12px 10px 36px;outline:none;
+  -webkit-appearance:none;
+  transition:border-color .2s;
+}
+.search-inner input:focus{border-color:var(--grn)}
+.search-ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:var(--txt3)}
+
+/* ── Chips ── */
+.chips{
+  display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:8px 16px;overscroll-behavior-x:contain;
+}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  padding:6px 13px;border-radius:20px;font-size:11px;font-weight:600;
+  cursor:pointer;background:var(--surf2);color:var(--txt2);border:1px solid var(--bdr);
+  white-space:nowrap;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+  transition:all .12s;
+}
+.chip.on{background:rgba(34,197,94,.1);color:var(--grn);border-color:rgba(34,197,94,.25)}
+
+/* ── Progress ── */
+.prog-wrap{display:flex;align-items:center;gap:6px;margin-top:4px}
+.prog-bg{flex:1;background:var(--bdr);border-radius:3px;height:4px;min-width:40px}
+.prog-fill{height:100%;border-radius:3px;transition:width .4s}
+
+/* ── Attendance ── */
+.att-card{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:11px 13px;border-radius:10px;border:1px solid var(--bdr);
+  background:var(--bg2);cursor:pointer;margin-bottom:6px;
+  -webkit-tap-highlight-color:transparent;
+  transition:border-color .12s,background .12s;
+}
+.att-card:active{opacity:.75}
+.att-card.present{background:rgba(5,46,22,.7);border-color:#14532d}
+.att-card.late{background:rgba(28,23,0,.7);border-color:#713f12}
+.att-status{font-size:12px;font-weight:700}
+.att-status.present{color:var(--grn)}
+.att-status.late{color:var(--ylw)}
+.att-status.absent{color:var(--txt3)}
+
+/* ── Calendar ── */
+.cal-nav{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 16px;border-bottom:1px solid var(--bdr);
+}
+.cal-month-lbl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:8px 10px 4px}
+.cal-wday{text-align:center;font-size:9px;color:var(--txt3);padding:5px 0;font-weight:700;letter-spacing:.5px}
+.cal-day{
+  aspect-ratio:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;border-radius:8px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .1s;
+  padding:2px;
+}
+.cal-day:active{background:var(--surf2)}
+.cal-day.is-today{background:rgba(34,197,94,.08)}
+.cal-day.is-sel{background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.35)}
+.cal-dn{font-size:11px;font-weight:500;line-height:1;margin-bottom:2px}
+.cal-day.is-today .cal-dn{color:var(--grn);font-weight:700}
+.cal-day.is-sel .cal-dn{color:var(--grn)}
+.cal-dots{display:flex;gap:2px;justify-content:center;flex-wrap:wrap;max-width:22px}
+.cal-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+
+/* ── Event card ── */
+.ev-card{
+  background:var(--surf);border:1px solid var(--bdr);border-radius:10px;
+  padding:12px 13px;margin-bottom:8px;
+  border-left-width:3px;border-left-style:solid;
+}
+
+/* ── Pay card ── */
+.pay-card{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:11px 13px;border-radius:10px;border:1px solid var(--bdr);
+  background:var(--bg2);margin-bottom:6px;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.pay-card:active{opacity:.75}
+.pay-card.paid{background:rgba(5,46,22,.65);border-color:#14532d}
+.pay-card.unpaid{background:rgba(26,10,10,.65);border-color:#7f1d1d}
+
+/* ── Bottom Sheet ── */
+.sheet-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.65);
+  z-index:100;
+  display:none;
+  opacity:0;
+  transition:opacity .22s;
+  /* Fix: use -webkit-backdrop-filter for Safari */
+  -webkit-backdrop-filter:blur(4px);
+  backdrop-filter:blur(4px);
+}
+.sheet-overlay.open{opacity:1}
+.sheet{
+  position:fixed;
+  bottom:0;left:0;right:0;
+  background:var(--surf);
+  border-radius:20px 20px 0 0;
+  border-top:1px solid var(--bdr2);
+  /* Max height leaves space to tap to close */
+  max-height:90dvh;
+  max-height:90vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  /* Safe area at bottom */
+  padding-bottom:calc(20px + var(--sab));
+  transform:translateY(100%);
+  transition:transform .28s cubic-bezier(.32,1.1,.4,1);
+  z-index:101;
+  will-change:transform;
+}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{
+  width:36px;height:4px;background:var(--bdr2);border-radius:3px;
+  margin:12px auto 0;
+}
+.sheet-hdr{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 18px 8px;
+}
+.sheet-ttl{font-size:17px;font-weight:700}
+.sheet-close{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--surf2);border:none;color:var(--txt2);
+  font-size:18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.sheet-body{padding:0 18px 8px}
+
+/* ── Form ── */
+.fg{margin-bottom:12px}
+.fl{
+  display:block;font-size:10px;color:var(--txt3);
+  letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;
+}
+/* font-size 16px everywhere = no iOS zoom */
+.fi{
+  width:100%;font-size:16px;font-family:'Noto Sans KR',sans-serif;
+  background:var(--bg2);border:1px solid var(--bdr);color:var(--txt);
+  border-radius:10px;padding:11px 13px;outline:none;
+  -webkit-appearance:none;transition:border-color .2s;
+}
+.fi:focus{border-color:var(--grn)}
+.fi-fee{
+  background:var(--bg);border-radius:10px;padding:11px 13px;
+  display:flex;flex-direction:column;justify-content:center;min-height:46px;
+}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.f-actions{display:flex;gap:8px;padding-top:6px}
+
+/* ── Member detail ── */
+.det-hdr{
+  text-align:center;padding:18px 16px 14px;
+  border-bottom:1px solid var(--bdr);
+}
+.det-ava{
+  width:60px;height:60px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;font-weight:700;margin:0 auto 10px;
+}
+.det-name{font-size:19px;font-weight:700;margin-bottom:4px}
+.det-phone{font-size:13px;color:var(--txt2);margin-bottom:8px}
+.info-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:7px;
+  padding:12px 16px;
+}
+.info-cell{background:var(--bg2);border-radius:9px;padding:10px 12px}
+.info-lbl{font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.info-val{font-size:13px;font-weight:600}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;
+  /* Above bottom nav */
+  bottom:calc(var(--nav-h) + var(--sab) + 12px);
+  left:16px;right:16px;
+  background:var(--surf2);border:1px solid var(--bdr2);
+  border-radius:12px;padding:12px 16px;
+  font-size:14px;text-align:center;font-weight:600;
+  z-index:200;
+  opacity:0;transform:translateY(6px);
+  transition:opacity .2s,transform .2s;
+  pointer-events:none;
+  box-shadow:0 8px 28px rgba(0,0,0,.4);
+}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{color:var(--grn);border-color:rgba(34,197,94,.25)}
+.toast.err{color:var(--red);border-color:rgba(239,68,68,.25)}
+
+/* ── Animations ── */
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.fade{animation:fadeUp .2s ease both}
+
+/* ── Empty state ── */
+.empty{text-align:center;padding:48px 20px;color:var(--txt3)}
+.empty-ico{font-size:38px;margin-bottom:10px}
+.empty-txt{font-size:14px}
+
+/* ── Pagination ── */
+.pager{
+  display:flex;justify-content:center;align-items:center;
+  gap:8px;padding:14px 16px;
+}
+.pager-btn{
+  min-height:40px;padding:8px 16px;font-size:13px;
+  border-radius:9px;border:1px solid var(--bdr);
+  background:var(--surf2);color:var(--txt2);cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;font-weight:600;
+  -webkit-tap-highlight-color:transparent;
+}
+.pager-btn:disabled{opacity:.3;pointer-events:none}
+.pager-info{font-size:12px;color:var(--txt3)}
+
+/* ── Divider ── */
+.divider{height:1px;background:var(--bdr);margin:0 16px}
+
+/* ── Group label ── */
+.grp-lbl{
+  font-size:11px;font-weight:700;color:var(--txt2);
+  padding:10px 16px 6px;letter-spacing:.5px;
+}
+
+/* ── Pay toggle btn ── */
+.pay-toggle{
+  width:100%;padding:13px;border-radius:12px;border:none;
+  cursor:pointer;font-size:15px;font-weight:700;
+  font-family:'Noto Sans KR',sans-serif;
+  -webkit-tap-highlight-color:transparent;
+  transition:opacity .12s;
+}
+.pay-toggle:active{opacity:.75}
+</style>
+</head>
+<body>
+<div id="shell">
+  <header id="hdr">
+    <div class="hdr-logo">⚽</div>
+    <div class="hdr-title" id="hdrTitle">대시보드</div>
+    <div class="hdr-right" id="hdrRight"></div>
+  </header>
+  <main id="page"></main>
+  <nav id="nav"></nav>
+</div>
+
+<!-- Sheet overlay -->
+<div class="sheet-overlay" id="overlay" onclick="closeSheet()">
+  <div class="sheet" id="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-hdr">
+      <div class="sheet-ttl" id="sheetTitle"></div>
+      <button class="sheet-close" onclick="closeSheet()">✕</button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ─── Constants ────────────────────────────────────────────────────────────── */
+const LEVELS  = ['입문','초급','중급','고급','선수반'];
+const GROUPS  = ['A반(월수)','B반(화목)','C반(주말)','D반(월수금)','E반(토일)'];
+const POS     = ['FW','MF','DF','GK','없음'];
+const COACHES = ['김코치','박코치','이코치'];
+const STATS   = ['활성','휴강','대기'];
+const FEE     = {입문:100000,초급:120000,중급:150000,고급:180000,선수반:220000};
+const LVC     = {입문:'#0891b2',초급:'#22c55e',중급:'#f97316',고급:'#ea580c',선수반:'#a855f7'};
+const STC     = {활성:'#22c55e',휴강:'#f97316',대기:'#6b7280'};
+const ECOLS   = ['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444','#06b6d4'];
+const ETITLES = ['정규 레슨','개인 레슨','그룹 레슨','전술 훈련','체력 훈련','대회 준비'];
+const TODAY   = new Date().toISOString().slice(0,10);
+
+/* ─── Helpers ───────────────────────────────────────────────────────────────── */
+const $  = id => document.getElementById(id);
+const W  = n  => n.toLocaleString('ko-KR') + '원';
+const DA = (base, n) => { const d=new Date(base); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+const h  = str => String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const DIM = (y,m) => new Date(y,m+1,0).getDate();
+const FDY = (y,m) => new Date(y,m,1).getDay();
+
+/* ─── Data ──────────────────────────────────────────────────────────────────── */
+let members = [], att = {}, evts = [];
+
+(function seedData(){
+  const NAMES=['김민준','이서연','박도현','최수아','정우진','강지호','윤예린','장현우','임나연','한태양',
+               '오승민','신하늘','권준서','황보미','송재원','안다은','조성훈','유나영','배동혁','전소희',
+               '고민수','노아름','류준혁','문채원','변태민','서지수','심병준','양예지','엄강민','장수빈',
+               '조현서','진가람','채민재','한보람','허성민','홍지원'];
+  NAMES.forEach((name,i)=>{
+    const lvl=LEVELS[i%LEVELS.length];
+    const dago=30+Math.floor(Math.random()*370);
+    const jd=new Date(); jd.setDate(jd.getDate()-dago);
+    const id='m'+i;
+    members.push({id,name,
+      phone:`010-${1000+~~(Math.random()*8999)}-${1000+~~(Math.random()*8999)}`,
+      birth:`${2000+i%12}-${String((i%12)+1).padStart(2,'0')}-15`,
+      level:lvl, group:GROUPS[i%GROUPS.length], pos:POS[i%POS.length],
+      coach:COACHES[i%COACHES.length], status:i%9===0?'휴강':i%14===0?'대기':'활성',
+      joinDate:jd.toISOString().slice(0,10),
+      paid:i%3!==0, paidDate:i%3!==0?TODAY:null,
+      notes:i%4===0?['드리블 특기','체력 우수','대회 출전 경력'][i%3]:''
+    });
+    att[id]={};
+    for(let d=0;d<30;d++){
+      if(Math.random()>.32){
+        att[id][DA(TODAY,-d)]=Math.random()>.14?'present':'late';
+      }
+    }
+  });
+  for(let d=-6;d<=28;d++){
+    if(Math.random()>.48){
+      const ds=DA(TODAY,d);
+      const cnt=1+~~(Math.random()*2);
+      for(let j=0;j<cnt;j++){
+        const ti=~~(Math.random()*ETITLES.length);
+        const hr=[9,11,14,16,18][~~(Math.random()*5)];
+        evts.push({
+          id:'e'+Date.now()+Math.random(), date:ds,
+          title:ETITLES[ti], group:GROUPS[~~(Math.random()*GROUPS.length)],
+          coach:COACHES[~~(Math.random()*COACHES.length)],
+          start:`${String(hr).padStart(2,'0')}:00`,
+          end:`${String(hr+1).padStart(2,'0')}:30`,
+          loc:['메인 구장','보조 구장','실내체육관','풋살장'][~~(Math.random()*4)],
+          color:ECOLS[ti], memo:''
+        });
+      }
+    }
+  }
+})();
+
+/* ─── State ─────────────────────────────────────────────────────────────────── */
+let view='dashboard';
+let attDate=TODAY, attGrp='전체';
+let srch='', fGrp='전체', fLvl='전체', fStat='전체', pg=1;
+const PGS=12;
+let calY=new Date().getFullYear(), calM=new Date().getMonth(), selDate=TODAY;
+
+/* ─── Computed ───────────────────────────────────────────────────────────────── */
+const attRate = id => {
+  const r=att[id]||{}; const ks=Object.keys(r);
+  if(!ks.length) return 0;
+  return Math.round(Object.values(r).filter(v=>v==='present'||v==='late').length/ks.length*100);
+};
+const stats = () => {
+  const paid=members.filter(m=>m.paid);
+  const unpaid=members.filter(m=>!m.paid);
+  return {
+    total:members.length,
+    active:members.filter(m=>m.status==='활성').length,
+    paidCnt:paid.length, unpaidCnt:unpaid.length,
+    revenue:paid.reduce((s,m)=>s+FEE[m.level],0),
+    pending:unpaid.reduce((s,m)=>s+FEE[m.level],0),
+    todayAtt:members.filter(m=>att[m.id]?.[TODAY]==='present').length,
+    avgAtt:members.length?~~(members.reduce((a,m)=>a+attRate(m.id),0)/members.length):0
+  };
+};
+const filtered = () => members
+  .filter(m=>{
+    const q=srch.toLowerCase();
+    return (!q||m.name.includes(q)||m.phone.includes(q))
+      &&(fGrp==='전체'||m.group===fGrp)
+      &&(fLvl==='전체'||m.level===fLvl)
+      &&(fStat==='전체'||m.status===fStat);
+  })
+  .sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+
+/* ─── Nav ────────────────────────────────────────────────────────────────────── */
+const TABS=[
+  {id:'dashboard',ico:'⚡',lbl:'홈'},
+  {id:'members',  ico:'👥',lbl:'회원'},
+  {id:'attendance',ico:'✅',lbl:'출석'},
+  {id:'schedule', ico:'📅',lbl:'일정'},
+  {id:'payment',  ico:'💳',lbl:'수업료'},
+];
+function renderNav(){
+  $('nav').innerHTML=TABS.map(t=>`
+    <button class="nav-tab ${t.id===view?'on':''}" onclick="go('${t.id}')">
+      <span class="ico">${t.ico}</span>${t.lbl}
+    </button>`).join('');
+}
+function go(v){ view=v; renderNav(); renderPage(); }
+
+/* ─── Page Router ────────────────────────────────────────────────────────────── */
+const TITLES={dashboard:'대시보드',members:'회원 관리',attendance:'출석 체크',schedule:'레슨 일정',payment:'수업료'};
+function renderPage(){
+  $('hdrTitle').textContent=TITLES[view];
+  $('hdrRight').innerHTML='';
+  if(view==='members')   $('hdrRight').innerHTML=`<button class="btn btn-g btn-sm" onclick="openMemberForm()">+ 등록</button>`;
+  if(view==='schedule')  $('hdrRight').innerHTML=`<button class="btn btn-g btn-sm" onclick="openEvtForm()">+ 추가</button>`;
+  const map={dashboard:vDash,members:vMembers,attendance:vAtt,schedule:vSched,payment:vPay};
+  $('page').innerHTML=`<div class="fade">${map[view]()}</div>`;
+  if(view==='members') bindMemberEvents();
+}
+
+/* ─── Dashboard ──────────────────────────────────────────────────────────────── */
+function vDash(){
+  const s=stats();
+  const todayEvts=evts.filter(e=>e.date===TODAY).sort((a,b)=>a.start.localeCompare(b.start));
+  return`
+<div class="hscroll">
+  ${sc('👥','전체 회원',s.total+'명','활성 '+s.active+'명','#3b82f6')}
+  ${sc('✅','오늘 출석',s.todayAtt+'명','평균 '+s.avgAtt+'%','#22c55e')}
+  ${sc('💳','납부 완료',s.paidCnt+'명',W(s.revenue),'#a855f7')}
+  ${sc('⚠️','미납',s.unpaidCnt+'명',W(s.pending),'#f97316')}
+</div>
+<div class="sec">
+  <div class="card" style="padding:14px 15px;margin-bottom:12px">
+    <div class="sec-title">반별 현황</div>
+    ${GROUPS.map((g,gi)=>{
+      const cnt=members.filter(m=>m.group===g).length;
+      const pd=members.filter(m=>m.group===g&&m.paid).length;
+      const pct=members.length?(cnt/members.length)*100:0;
+      const gc=['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444'][gi];
+      return`<div style="margin-bottom:11px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
+          <span style="color:var(--txt2)">${g}</span>
+          <div style="display:flex;gap:9px">
+            <span style="color:var(--txt3);font-size:10px">납부 ${pd}/${cnt}</span>
+            <span style="color:${gc};font-weight:700">${cnt}명</span>
+          </div>
+        </div>
+        <div style="background:var(--bdr);border-radius:3px;height:5px">
+          <div style="background:${gc};width:${pct}%;height:100%;border-radius:3px;transition:width .5s"></div>
+        </div></div>`;
+    }).join('')}
+  </div>
+  ${todayEvts.length?`<div class="card" style="padding:14px 15px;margin-bottom:12px">
+    <div class="sec-title">오늘 일정 (${todayEvts.length}건)</div>
+    ${todayEvts.slice(0,4).map(e=>`
+      <div style="display:flex;gap:9px;margin-bottom:9px">
+        <div style="width:3px;border-radius:3px;background:${e.color};flex-shrink:0;min-height:30px"></div>
+        <div>
+          <div style="font-size:13px;font-weight:700">${h(e.title)}</div>
+          <div style="font-size:11px;color:var(--txt3)">${e.start}–${e.end} · ${h(e.group)}</div>
+        </div>
+      </div>`).join('')}
+  </div>`:''}
+  ${s.unpaidCnt>0?`<div class="card" style="padding:14px 15px">
+    <div class="sec-title">미납 회원 (${s.unpaidCnt}명)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${members.filter(m=>!m.paid).map(m=>`
+        <span onclick="go('payment')" style="padding:5px 11px;border-radius:20px;background:rgba(249,115,22,.1);color:var(--org);font-size:11px;font-weight:600;cursor:pointer">${h(m.name)}</span>`).join('')}
+    </div>
+  </div>`:''}
+</div>`;
+}
+function sc(ico,lbl,val,sub,color){
+  return`<div class="stat-card" style="border-top:2px solid ${color}">
+    <div class="stat-ico">${ico}</div>
+    <div class="stat-lbl">${lbl}</div>
+    <div class="stat-val" style="color:${color}">${val}</div>
+    <div class="stat-sub">${sub}</div>
+  </div>`;
+}
+
+/* ─── Members ────────────────────────────────────────────────────────────────── */
+function vMembers(){
+  return`
+<div class="search-box">
+  <div class="search-inner">
+    <span class="search-ico">🔍</span>
+    <input id="srchInput" type="search" value="${h(srch)}" placeholder="이름 · 전화번호 검색" autocomplete="off" autocorrect="off" spellcheck="false">
+  </div>
+</div>
+<div class="chips" id="chips1">
+  <span class="chip ${fGrp==='전체'?'on':''}" data-fgrp="전체">전체 반</span>
+  ${GROUPS.map(g=>`<span class="chip ${fGrp===g?'on':''}" data-fgrp="${h(g)}">${h(g)}</span>`).join('')}
+</div>
+<div class="chips" id="chips2">
+  <span class="chip ${fLvl==='전체'?'on':''}" data-flvl="전체">전체</span>
+  ${LEVELS.map(l=>`<span class="chip ${fLvl===l?'on':''}" data-flvl="${h(l)}">${h(l)}</span>`).join('')}
+  <span style="color:var(--bdr2);padding:6px 0">│</span>
+  ${STATS.map(s=>`<span class="chip ${fStat===s?'on':''}" data-fstat="${h(s)}">${h(s)}</span>`).join('')}
+</div>
+<div id="mlist"></div>
+<div id="mpager"></div>`;
+}
+
+function bindMemberEvents(){
+  const si=$('srchInput');
+  if(si){
+    si.addEventListener('input',function(){srch=this.value;pg=1;reMlist();});
+    // iOS: prevent page scroll while in search
+    si.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
+  }
+  $('chips1')?.addEventListener('click',e=>{
+    const v=e.target.dataset.fgrp;
+    if(v!==undefined){fGrp=v;pg=1;reMlist();
+      $('chips1').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.fgrp===v));
+    }
+  });
+  $('chips2')?.addEventListener('click',e=>{
+    const lv=e.target.dataset.flvl, sv=e.target.dataset.fstat;
+    if(lv!==undefined){fLvl=lv;pg=1;reMlist();
+      $('chips2').querySelectorAll('[data-flvl]').forEach(c=>c.classList.toggle('on',c.dataset.flvl===lv));
+    }
+    if(sv!==undefined){fStat=sv;pg=1;reMlist();
+      $('chips2').querySelectorAll('[data-fstat]').forEach(c=>c.classList.toggle('on',c.dataset.fstat===sv));
+    }
+  });
+  reMlist();
+}
+
+function reMlist(){
+  const fm=filtered();
+  const tp=Math.ceil(fm.length/PGS)||1;
+  if(pg>tp) pg=tp;
+  const slice=fm.slice((pg-1)*PGS,pg*PGS);
+  $('mlist').innerHTML=`
+    <div style="padding:8px 16px 4px;font-size:11px;color:var(--txt3)">${fm.length}명 조회 중</div>
+    <div class="card" style="margin:0 16px;overflow:hidden">
+      ${slice.map(m=>`
+        <div class="mrow" onclick="openMemberDetail('${m.id}')">
+          <div class="ava" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.name[0]}</div>
+          <div class="minfo">
+            <div class="mname">${h(m.name)}
+              <span class="badge" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.level}</span>
+            </div>
+            <div class="msub">${h(m.group)} · ${m.coach} · <span style="color:${STC[m.status]}">${m.status}</span></div>
+            <div class="prog-wrap">
+              <div class="prog-bg"><div class="prog-fill" style="width:${attRate(m.id)}%;background:${attRate(m.id)>70?'var(--grn)':attRate(m.id)>40?'var(--org)':'var(--red)'}"></div></div>
+              <span style="font-size:10px;color:var(--txt3)">${attRate(m.id)}%</span>
+            </div>
+          </div>
+          <div class="mright">
+            <div class="mfee">${~~(FEE[m.level]/10000)}만원</div>
+            <div class="mpaid" style="color:${m.paid?'var(--grn)':'var(--org)'}">${m.paid?'납부':'미납'}</div>
+          </div>
+        </div>`).join('')}
+      ${!slice.length?`<div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">검색 결과 없음</div></div>`:''}
+    </div>`;
+  $('mpager').innerHTML=tp>1?`
+    <div class="pager">
+      <button class="pager-btn" onclick="pg=Math.max(1,pg-1);reMlist()" ${pg===1?'disabled':''}>‹ 이전</button>
+      <span class="pager-info">${pg} / ${tp}</span>
+      <button class="pager-btn" onclick="pg=Math.min(${tp},pg+1);reMlist()" ${pg===tp?'disabled':''}>다음 ›</button>
+    </div>`:'';
+}
+
+/* ─── Attendance ─────────────────────────────────────────────────────────────── */
+function vAtt(){
+  const gm=members.filter(m=>attGrp==='전체'||m.group===attGrp);
+  const pres=gm.filter(m=>att[m.id]?.[attDate]==='present').length;
+  const late=gm.filter(m=>att[m.id]?.[attDate]==='late').length;
+  return`
+<div style="padding:10px 16px 8px;background:var(--surf);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:10">
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+    <input type="date" class="fi" style="flex:1" value="${attDate}" onchange="attDate=this.value;renderPage()">
+    <div style="font-size:13px;white-space:nowrap;font-weight:700">
+      <span style="color:var(--grn)">${pres}</span> / <span style="color:var(--ylw)">${late}</span> / <span style="color:var(--red)">${gm.length-pres-late}</span>
+    </div>
+  </div>
+  <div class="chips" style="padding:0;margin:0">
+    <span class="chip ${attGrp==='전체'?'on':''}" onclick="attGrp='전체';renderPage()">전체</span>
+    ${GROUPS.map(g=>`<span class="chip ${attGrp===g?'on':''}" onclick="attGrp='${h(g)}';renderPage()">${h(g)}</span>`).join('')}
+    <button class="btn btn-g" style="flex-shrink:0;font-size:12px;min-height:32px;padding:6px 12px;border-radius:8px;margin-left:4px" onclick="markAll('present')">전체 출석</button>
+  </div>
+</div>
+<div class="sec">
+  <div style="font-size:11px;color:var(--txt3);margin-bottom:10px">탭 → 출석 ✓ · 지각 ! · 결석 (순서 변경)</div>
+  ${GROUPS.filter(g=>attGrp==='전체'||attGrp===g).map(g=>{
+    const gms=members.filter(m=>m.group===g);
+    if(!gms.length) return '';
+    const gp=gms.filter(m=>att[m.id]?.[attDate]==='present').length;
+    return`<div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:7px">${h(g)} <span style="color:var(--txt3);font-weight:400">${gp}/${gms.length}</span></div>
+      ${gms.map(m=>{
+        const s=att[m.id]?.[attDate];
+        const lbl=s==='present'?'출석 ✓':s==='late'?'지각 !':'결석';
+        return`<div class="att-card ${s||'absent'}" onclick="cycleAtt('${m.id}')">
+          <div>
+            <div style="font-size:13px;font-weight:700">${h(m.name)}</div>
+            <div style="font-size:10px;color:var(--txt3)">${m.level} · 출석률 ${attRate(m.id)}%</div>
+          </div>
+          <div class="att-status ${s||'absent'}">${lbl}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('')}
+</div>`;
+}
+function cycleAtt(id){
+  if(!att[id]) att[id]={};
+  const c=att[id][attDate];
+  if(!c) att[id][attDate]='present';
+  else if(c==='present') att[id][attDate]='late';
+  else delete att[id][attDate];
+  renderPage();
+}
+function markAll(s){
+  members.filter(m=>attGrp==='전체'||m.group===attGrp).forEach(m=>{
+    if(!att[m.id]) att[m.id]={};
+    att[m.id][attDate]=s;
+  });
+  renderPage(); toast2('전체 출석 처리 완료');
+}
+
+/* ─── Schedule ───────────────────────────────────────────────────────────────── */
+function vSched(){
+  const ms=`${calY}-${String(calM+1).padStart(2,'0')}`;
+  const mEvts=evts.filter(e=>e.date.startsWith(ms));
+  const dEvts=evts.filter(e=>e.date===selDate).sort((a,b)=>a.start.localeCompare(b.start));
+  return`
+<div class="card" style="margin:14px 16px 12px">
+  <div class="cal-nav">
+    <button class="btn btn-s btn-sm" onclick="prevM()" style="min-width:40px">‹</button>
+    <div class="cal-month-lbl">${calY}년 ${calM+1}월</div>
+    <button class="btn btn-s btn-sm" onclick="nextM()" style="min-width:40px">›</button>
+  </div>
+  <div class="cal-grid">
+    ${['일','월','화','수','목','금','토'].map(d=>`<div class="cal-wday">${d}</div>`).join('')}
+    ${Array.from({length:FDY(calY,calM)},()=>`<div></div>`).join('')}
+    ${Array.from({length:DIM(calY,calM)},(_,i)=>{
+      const d=i+1;
+      const ds=`${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const de=mEvts.filter(e=>e.date===ds);
+      return`<div class="cal-day ${ds===TODAY?'is-today':''} ${ds===selDate?'is-sel':''}" onclick="selDate='${ds}';renderPage()">
+        <div class="cal-dn">${d}</div>
+        <div class="cal-dots">${de.slice(0,3).map(e=>`<div class="cal-dot" style="background:${e.color}"></div>`).join('')}</div>
+      </div>`;
+    }).join('')}
+  </div>
+</div>
+<div class="sec" style="padding-top:0">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:13px;color:var(--txt2)">${selDate} <span style="color:var(--grn)">(${dEvts.length}건)</span></div>
+  </div>
+  ${!dEvts.length?`<div class="empty" style="padding:28px 0"><div class="empty-ico">📅</div><div class="empty-txt">일정 없음</div></div>`:
+    dEvts.map(e=>`
+      <div class="ev-card" style="border-left-color:${e.color}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:14px;margin-bottom:3px">${h(e.title)}</div>
+            <div style="font-size:12px;color:var(--txt3)">${e.start}–${e.end} · ${h(e.group)}</div>
+            <div style="font-size:11px;color:var(--txt3);margin-top:2px">${e.coach} · ${h(e.loc)}</div>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button class="btn btn-s btn-xs" onclick="openEvtForm('${e.id}')">수정</button>
+            <button class="btn btn-d btn-xs" onclick="delEvt('${e.id}')">삭제</button>
+          </div>
+        </div>
+      </div>`).join('')}
+</div>`;
+}
+function prevM(){if(calM===0){calY--;calM=11;}else calM--;renderPage();}
+function nextM(){if(calM===11){calY++;calM=0;}else calM++;renderPage();}
+function delEvt(id){evts=evts.filter(e=>e.id!==id);renderPage();toast2('삭제되었습니다','err');}
+
+/* ─── Payment ────────────────────────────────────────────────────────────────── */
+function vPay(){
+  const s=stats();
+  const pr=members.length?~~((s.paidCnt/members.length)*100):0;
+  return`
+<div class="hscroll">
+  ${sc('✅','납부 완료',W(s.revenue),s.paidCnt+'명','#22c55e')}
+  ${sc('❌','미납',W(s.pending),s.unpaidCnt+'명','#f97316')}
+  ${sc('📊','납부율',pr+'%',`${s.paidCnt}/${s.total}명`,'#a855f7')}
+</div>
+<div class="sec" style="padding-top:0">
+  <div class="sec-title" style="margin-bottom:8px">반별 납부 현황</div>
+  <div class="hscroll" style="padding:0 0 10px">
+    ${GROUPS.map((g,gi)=>{
+      const gm=members.filter(m=>m.group===g);
+      const pd=gm.filter(m=>m.paid).length;
+      const gc=['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444'][gi];
+      return`<div class="stat-card" style="border-top:2px solid ${gc};min-width:100px;padding:10px 12px">
+        <div style="font-size:9px;color:var(--txt3);margin-bottom:3px">${h(g)}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${gc}">${pd}/${gm.length}</div>
+        <div style="font-size:9px;color:var(--txt3)">${gm.length?~~(pd/gm.length*100):0}%</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="sec-title">전체 납부 현황 <span style="font-size:10px;color:var(--txt3);font-weight:400">(탭하여 변경)</span></div>
+  ${[...members].sort((a,b)=>a.paid===b.paid?0:a.paid?1:-1).map(m=>`
+    <div class="pay-card ${m.paid?'paid':'unpaid'}" onclick="togglePaid('${m.id}')">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="ava" style="width:36px;height:36px;font-size:13px;background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.name[0]}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700">${h(m.name)}</div>
+          <div style="font-size:10px;color:var(--txt3)">${h(m.group)} · ${m.level}${m.paidDate?' · '+m.paidDate:''}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:700;color:${m.paid?'var(--grn)':'var(--org)'}">${W(FEE[m.level])}</div>
+        <div style="font-size:10px;font-weight:700;color:${m.paid?'var(--grn)':'var(--red)'}">${m.paid?'✓ 납부':'미납'}</div>
+      </div>
+    </div>`).join('')}
+</div>`;
+}
+
+/* ─── Member Detail ──────────────────────────────────────────────────────────── */
+function openMemberDetail(id){
+  const m=members.find(x=>x.id===id); if(!m) return;
+  const ar=attRate(m.id);
+  showSheet('',`
+    <div class="det-hdr">
+      <div class="det-ava" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.name[0]}</div>
+      <div class="det-name">${h(m.name)}</div>
+      <div class="det-phone">${m.phone}</div>
+      <div style="display:flex;gap:6px;justify-content:center">
+        <span class="badge" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.level}</span>
+        <span class="badge" style="background:${STC[m.status]}20;color:${STC[m.status]}">${m.status}</span>
+      </div>
+    </div>
+    <div style="padding:12px 16px 0">
+      <div style="background:var(--bg2);border-radius:10px;padding:12px 13px;margin-bottom:12px">
+        <div style="font-size:10px;color:var(--txt3);margin-bottom:7px">출석률 (최근 30일)</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="flex:1;background:var(--bdr);border-radius:4px;height:7px">
+            <div style="background:${ar>70?'var(--grn)':'var(--org)'};width:${ar}%;height:100%;border-radius:4px"></div>
+          </div>
+          <span style="font-size:17px;font-weight:700;color:var(--grn)">${ar}%</span>
+        </div>
+      </div>
+    </div>
+    <div class="info-grid">
+      ${[['반',m.group],['포지션',m.pos],['담당 코치',m.coach],['등록일',m.joinDate],['생년월일',m.birth||'-'],['월 수업료',W(FEE[m.level])]].map(([k,v])=>`
+        <div class="info-cell">
+          <div class="info-lbl">${k}</div>
+          <div class="info-val" ${k==='월 수업료'?'style="color:var(--grn)"':''}>${h(v)}</div>
+        </div>`).join('')}
+    </div>
+    <div style="padding:0 16px 8px">
+      <button class="pay-toggle" style="background:${m.paid?'rgba(34,197,94,.12)':'rgba(249,115,22,.12)'};color:${m.paid?'var(--grn)':'var(--org)'};"
+        onclick="togglePaid('${m.id}');closeSheet();renderPage()">
+        ${m.paid?'✓ 납부완료 — 취소하기':'⚠ 미납 — 납부 처리하기'}
+      </button>
+      ${m.notes?`<div style="margin-top:8px;padding:10px 12px;background:var(--bg2);border-radius:9px;font-size:12px;color:var(--txt2)">📝 ${h(m.notes)}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-s" style="flex:1" onclick="closeSheet();openMemberForm('${m.id}')">✏️ 수정</button>
+        <button class="btn btn-d" style="flex:1" onclick="delMember('${m.id}')">삭제</button>
+      </div>
+    </div>
+  `);
+}
+
+/* ─── Member Form ────────────────────────────────────────────────────────────── */
+function openMemberForm(id){
+  const m=id?members.find(x=>x.id===id):null;
+  showSheet(m?'회원 수정':'회원 등록',`
+    <div class="frow">
+      <div class="fg"><label class="fl">이름 *</label><input class="fi" id="fn" value="${h(m?.name||'')}" placeholder="홍길동" autocomplete="name"></div>
+      <div class="fg"><label class="fl">전화번호</label><input class="fi" id="fp" value="${h(m?.phone||'')}" placeholder="010-0000-0000" type="tel"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">생년월일</label><input class="fi" id="fb" value="${h(m?.birth||'')}" placeholder="2000-01-01" inputmode="numeric"></div>
+      <div class="fg"><label class="fl">등록일</label><input class="fi" type="date" id="fjd" value="${m?.joinDate||TODAY}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">레벨</label>
+        <select class="fi" id="fl_">${LEVELS.map(l=>`<option ${(m?.level||'초급')===l?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">반</label>
+        <select class="fi" id="fg_">${GROUPS.map(g=>`<option ${(m?.group||GROUPS[0])===g?'selected':''}>${h(g)}</option>`).join('')}</select></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">포지션</label>
+        <select class="fi" id="fpos">${POS.map(p=>`<option ${(m?.pos||'없음')===p?'selected':''}>${p}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">코치</label>
+        <select class="fi" id="fco">${COACHES.map(c=>`<option ${(m?.coach||COACHES[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">상태</label>
+        <select class="fi" id="fst">${STATS.map(s=>`<option ${(m?.status||'활성')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="fg">
+        <label class="fl">월 수업료</label>
+        <div class="fi-fee"><div id="feeShow" style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--grn)">${W(FEE[m?.level||'초급'])}</div></div>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">메모</label>
+      <textarea class="fi" id="fno" rows="2" style="resize:none">${h(m?.notes||'')}</textarea></div>
+    <div class="f-actions">
+      <button class="btn btn-s" style="flex:1" onclick="closeSheet()">취소</button>
+      <button class="btn btn-g" style="flex:2" onclick="saveMember('${m?.id||''}')">저장</button>
+    </div>
+  `);
+  setTimeout(()=>{
+    $('fl_')?.addEventListener('change',function(){$('feeShow').textContent=W(FEE[this.value]);});
+  },50);
+}
+
+function saveMember(id){
+  const name=($('fn')?.value||'').trim();
+  if(!name){toast2('이름을 입력하세요','err');return;}
+  const data={name,phone:$('fp')?.value||'',birth:$('fb')?.value||'',
+    level:$('fl_')?.value||'초급',group:$('fg_')?.value||GROUPS[0],
+    pos:$('fpos')?.value||'없음',coach:$('fco')?.value||COACHES[0],
+    status:$('fst')?.value||'활성',joinDate:$('fjd')?.value||TODAY,
+    notes:$('fno')?.value||''};
+  if(id){
+    const i=members.findIndex(m=>m.id===id);
+    if(i>-1){members[i]={...members[i],...data};toast2('수정되었습니다');}
+  } else {
+    const nm={id:'m'+Date.now(),...data,paid:false,paidDate:null};
+    members.push(nm); att[nm.id]={}; toast2(name+' 등록 완료');
+  }
+  closeSheet(); renderPage();
+}
+
+function delMember(id){
+  if(!confirm('이 회원을 삭제하시겠습니까?')) return;
+  members=members.filter(m=>m.id!==id); delete att[id];
+  closeSheet(); renderPage(); toast2('삭제되었습니다','err');
+}
+
+function togglePaid(id){
+  const i=members.findIndex(m=>m.id===id);
+  if(i>-1){members[i].paid=!members[i].paid; members[i].paidDate=members[i].paid?TODAY:null;}
+  renderPage(); toast2('납부 상태 변경');
+}
+
+/* ─── Event Form ─────────────────────────────────────────────────────────────── */
+function openEvtForm(id){
+  const e=id?evts.find(x=>x.id===id):null;
+  showSheet(e?'일정 수정':'일정 추가',`
+    <div class="fg"><label class="fl">제목 *</label>
+      <input class="fi" id="et" value="${h(e?.title||'정규 레슨')}" placeholder="제목"></div>
+    <div class="frow">
+      <div class="fg"><label class="fl">날짜</label><input class="fi" type="date" id="ed" value="${e?.date||selDate}"></div>
+      <div class="fg"><label class="fl">반</label>
+        <select class="fi" id="eg">${GROUPS.map(g=>`<option ${(e?.group||GROUPS[0])===g?'selected':''}>${h(g)}</option>`).join('')}</select></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">시작</label><input class="fi" id="es" value="${e?.start||'10:00'}" placeholder="10:00"></div>
+      <div class="fg"><label class="fl">종료</label><input class="fi" id="ee" value="${e?.end||'11:30'}" placeholder="11:30"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="fl">코치</label>
+        <select class="fi" id="eco">${COACHES.map(c=>`<option ${(e?.coach||COACHES[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">장소</label><input class="fi" id="el" value="${h(e?.loc||'메인 구장')}"></div>
+    </div>
+    <div class="fg"><label class="fl">색상</label>
+      <div style="display:flex;gap:10px;align-items:center;padding:4px 0">
+        ${ECOLS.map(c=>`<div onclick="this.parentElement.querySelectorAll('.cdot').forEach(d=>{d.style.transform='scale(1)';d.style.opacity='.5'});this.style.transform='scale(1.3)';this.style.opacity='1';document.getElementById('ecol').value='${c}'"
+          class="cdot" style="width:26px;height:26px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;transition:all .15s;transform:${(e?.color||ECOLS[0])===c?'scale(1.3)':'scale(1)'};opacity:${(e?.color||ECOLS[0])===c?'1':'.5'}"></div>`).join('')}
+        <input type="hidden" id="ecol" value="${e?.color||ECOLS[0]}">
+      </div>
+    </div>
+    <div class="fg"><label class="fl">메모</label>
+      <textarea class="fi" id="em" rows="2" style="resize:none">${h(e?.memo||'')}</textarea></div>
+    <div class="f-actions">
+      <button class="btn btn-s" style="flex:1" onclick="closeSheet()">취소</button>
+      <button class="btn btn-g" style="flex:2" onclick="saveEvt('${e?.id||''}')">저장</button>
+    </div>
+  `);
+}
+
+function saveEvt(id){
+  const title=($('et')?.value||'').trim();
+  if(!title){toast2('제목을 입력하세요','err');return;}
+  const data={title,date:$('ed')?.value||selDate,group:$('eg')?.value||GROUPS[0],
+    coach:$('eco')?.value||COACHES[0],start:$('es')?.value||'10:00',
+    end:$('ee')?.value||'11:30',loc:$('el')?.value||'',
+    color:$('ecol')?.value||ECOLS[0],memo:$('em')?.value||''};
+  if(id){const i=evts.findIndex(e=>e.id===id);if(i>-1)evts[i]={...evts[i],...data};}
+  else evts.push({id:'e'+Date.now(),...data});
+  selDate=data.date; closeSheet(); renderPage(); toast2('저장되었습니다');
+}
+
+/* ─── Bottom Sheet ───────────────────────────────────────────────────────────── */
+function showSheet(title, html){
+  $('sheetTitle').textContent=title;
+  $('sheetBody').innerHTML=html;
+  const ov=$('overlay'), sh=$('sheet');
+  ov.style.display='block';
+  // Force layout before transition
+  ov.getBoundingClientRect();
+  ov.classList.add('open');
+  sh.classList.add('open');
+}
+function closeSheet(){
+  const ov=$('overlay'), sh=$('sheet');
+  ov.classList.remove('open');
+  sh.classList.remove('open');
+  setTimeout(()=>{ ov.style.display='none'; },280);
+}
+// Tap overlay to close
+$('overlay').addEventListener('click', function(e){
+  if(e.target===this) closeSheet();
+});
+
+/* ─── Toast ──────────────────────────────────────────────────────────────────── */
+let toastTmr;
+function toast2(msg, type='ok'){
+  const t=$('toast');
+  t.textContent=(type==='ok'?'✅  ':'⚠️  ')+msg;
+  t.className=`toast show ${type}`;
+  clearTimeout(toastTmr);
+  toastTmr=setTimeout(()=>{ t.className='toast'; }, 2400);
+}
+
+/* ─── Init ───────────────────────────────────────────────────────────────────── */
+renderNav();
+renderPage();
+</script>
+</body>
+</html>
