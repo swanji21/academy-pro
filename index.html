@@ -24,9 +24,11 @@ body{
   font-family:'Noto Sans KR',sans-serif;
   background:#07090f;
   color:#e6ecf8;
-  /* dvh = dynamic viewport height (excludes Safari toolbar) */
+  /* dvh = dynamic viewport height (excludes Safari toolbar).
+     Order matters: the vh fallback MUST come first so that on
+     browsers supporting dvh the later dvh declaration wins. */
+  height:100vh; /* fallback for browsers without dvh */
   height:100dvh;
-  height:100vh; /* fallback */
   overflow:hidden;
   position:fixed; /* iOS: prevent body scroll causing layout shift */
   width:100%;
@@ -70,9 +72,9 @@ body{
 #shell{
   display:flex;
   flex-direction:column;
-  /* Use dvh with vh fallback */
-  height:100dvh;
+  /* Use dvh with vh fallback — vh first so dvh wins where supported */
   height:100vh;
+  height:100dvh;
   /* Respect safe areas */
   padding-top:var(--sat);
   padding-left:var(--sal);
@@ -109,11 +111,30 @@ body{
   pointer-events:none;
 }
 .hdr-right{
-  margin-left:auto;
   display:flex;
   align-items:center;
   gap:8px;
 }
+.sync-btn{
+  margin-left:auto;      /* pushes sync + hdr-right group to the right */
+  display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;flex-shrink:0;
+  border:1px solid var(--bdr);border-radius:9px;
+  background:var(--surf2);color:var(--txt2);
+  font-size:15px;line-height:1;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:opacity .12s,border-color .15s;
+  position:relative;
+}
+.sync-btn:active{opacity:.7}
+.sync-btn.on{border-color:var(--grn);box-shadow:0 0 0 1px var(--grn) inset}
+.sync-btn .dot{
+  position:absolute;top:-2px;right:-2px;
+  width:9px;height:9px;border-radius:50%;
+  border:2px solid var(--surf);
+  background:var(--txt3);
+}
+.sync-btn.on .dot{background:var(--grn)}
 
 /* ── Content area ── */
 #page{
@@ -507,6 +528,7 @@ body{
   <header id="hdr">
     <div class="hdr-logo">⚽</div>
     <div class="hdr-title" id="hdrTitle">대시보드</div>
+    <button class="sync-btn" id="syncBtn" onclick="openSyncSheet()" title="기기 동기화">☁️</button>
     <div class="hdr-right" id="hdrRight"></div>
   </header>
   <main id="page"></main>
@@ -526,6 +548,12 @@ body{
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Firebase (compat SDK) for PC ↔ phone realtime sync.
+     Loaded before the app script so window.firebase is available.
+     If offline / blocked, the app falls back to localStorage. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
 'use strict';
@@ -553,7 +581,7 @@ const FDY = (y,m) => new Date(y,m,1).getDay();
 /* ─── Data ──────────────────────────────────────────────────────────────────── */
 let members = [], att = {}, evts = [];
 
-(function seedData(){
+function seedData(){
   const NAMES=['김민준','이서연','박도현','최수아','정우진','강지호','윤예린','장현우','임나연','한태양',
                '오승민','신하늘','권준서','황보미','송재원','안다은','조성훈','유나영','배동혁','전소희',
                '고민수','노아름','류준혁','문채원','변태민','서지수','심병준','양예지','엄강민','장수빈',
@@ -598,7 +626,115 @@ let members = [], att = {}, evts = [];
       }
     }
   }
-})();
+}
+
+/* ─── Persistence & Sync (localStorage + Firebase Realtime Database) ──────────────
+   • Data persists per-device via localStorage immediately.
+   • When FIREBASE_CONFIG is filled in and a room code is set, the same data
+     is mirrored to Firebase Realtime Database, so a PC and a phone that use
+     the SAME room code stay in sync in realtime (both read + write live).
+   ────────────────────────────────────────────────────────────────────────────── */
+
+// 1) Paste your Firebase project config here (Project settings → General → Your apps).
+//    Realtime Database must be enabled; keep `databaseURL`.
+//    Leave blank to run in local-only mode (still persists on each device).
+const FIREBASE_CONFIG = {
+  apiKey:      "",
+  authDomain:  "",
+  databaseURL: "",
+  projectId:   "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId:       ""
+};
+
+const LS_DATA = 'academyPro:data';
+const LS_ROOM = 'academyPro:room';
+
+let fbDb = null;             // Firebase database instance (null = local-only)
+let fbRef = null;            // realtime ref to the current room
+let applyingRemote = false;  // guard so remote updates don't echo back
+let saveTmr = null;          // debounce timer
+
+function roomCode(){ return (localStorage.getItem(LS_ROOM) || '').trim(); }
+function firebaseReady(){
+  return typeof firebase !== 'undefined' && !!FIREBASE_CONFIG.databaseURL;
+}
+function syncActive(){ return !!fbRef; }
+
+function snapshot(){ return { members, att, evts }; }
+function applyData(d){
+  if(!d || typeof d !== 'object') return false;
+  members = Array.isArray(d.members) ? d.members : [];
+  att     = (d.att && typeof d.att === 'object') ? d.att : {};
+  evts    = Array.isArray(d.evts) ? d.evts : [];
+  return true;
+}
+
+function saveLocal(){
+  try{ localStorage.setItem(LS_DATA, JSON.stringify(snapshot())); }catch(e){}
+}
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(LS_DATA);
+    if(raw) return applyData(JSON.parse(raw));
+  }catch(e){}
+  return false;
+}
+
+// Called after every mutation. Saves locally + pushes to Firebase (debounced).
+function persist(){
+  if(applyingRemote) return;          // don't write while applying a remote change
+  saveLocal();
+  if(!syncActive()) return;
+  clearTimeout(saveTmr);
+  saveTmr = setTimeout(()=>{
+    fbRef.set({ ...snapshot(), _updated: Date.now() })
+      .catch(err=>console.warn('[sync] write failed', err));
+  }, 250);
+}
+
+// Connect (or reconnect) the realtime listener for the current room code.
+function connectRoom(){
+  if(fbRef){ try{ fbRef.off(); }catch(e){} fbRef = null; }
+  const code = roomCode();
+  if(!fbDb || !code) return;
+  fbRef = fbDb.ref('academies/' + code);
+  fbRef.on('value', snap=>{
+    const d = snap.val();
+    if(!d) {                       // brand-new room → upload current data
+      persist();
+      updateSyncBtn();
+      return;
+    }
+    applyingRemote = true;
+    applyData(d);
+    applyingRemote = false;
+    saveLocal();
+    if(typeof renderPage === 'function'){ renderNav(); renderPage(); }
+    updateSyncBtn();
+  }, err=>console.warn('[sync] listen failed', err));
+  updateSyncBtn();
+}
+
+// Boot the data layer: load local → init Firebase → seed if empty.
+function initData(){
+  const hadLocal = loadLocal();
+
+  if(firebaseReady()){
+    try{
+      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      fbDb = firebase.database();
+    }catch(e){ console.warn('[sync] init failed', e); fbDb = null; }
+  }
+
+  if(!hadLocal && !members.length){   // first ever run on this device
+    seedData();
+    saveLocal();
+  }
+
+  if(fbDb && roomCode()) connectRoom();   // realtime listener will reconcile
+}
 
 /* ─── State ─────────────────────────────────────────────────────────────────── */
 let view='dashboard';
@@ -857,6 +993,7 @@ function cycleAtt(id){
   if(!c) att[id][attDate]='present';
   else if(c==='present') att[id][attDate]='late';
   else delete att[id][attDate];
+  persist();
   renderPage();
 }
 function markAll(s){
@@ -864,6 +1001,7 @@ function markAll(s){
     if(!att[m.id]) att[m.id]={};
     att[m.id][attDate]=s;
   });
+  persist();
   renderPage(); toast2('전체 출석 처리 완료');
 }
 
@@ -916,7 +1054,7 @@ function vSched(){
 }
 function prevM(){if(calM===0){calY--;calM=11;}else calM--;renderPage();}
 function nextM(){if(calM===11){calY++;calM=0;}else calM++;renderPage();}
-function delEvt(id){evts=evts.filter(e=>e.id!==id);renderPage();toast2('삭제되었습니다','err');}
+function delEvt(id){evts=evts.filter(e=>e.id!==id);persist();renderPage();toast2('삭제되었습니다','err');}
 
 /* ─── Payment ────────────────────────────────────────────────────────────────── */
 function vPay(){
@@ -1065,18 +1203,21 @@ function saveMember(id){
     const nm={id:'m'+Date.now(),...data,paid:false,paidDate:null};
     members.push(nm); att[nm.id]={}; toast2(name+' 등록 완료');
   }
+  persist();
   closeSheet(); renderPage();
 }
 
 function delMember(id){
   if(!confirm('이 회원을 삭제하시겠습니까?')) return;
   members=members.filter(m=>m.id!==id); delete att[id];
+  persist();
   closeSheet(); renderPage(); toast2('삭제되었습니다','err');
 }
 
 function togglePaid(id){
   const i=members.findIndex(m=>m.id===id);
   if(i>-1){members[i].paid=!members[i].paid; members[i].paidDate=members[i].paid?TODAY:null;}
+  persist();
   renderPage(); toast2('납부 상태 변경');
 }
 
@@ -1125,6 +1266,7 @@ function saveEvt(id){
     color:$('ecol')?.value||ECOLS[0],memo:$('em')?.value||''};
   if(id){const i=evts.findIndex(e=>e.id===id);if(i>-1)evts[i]={...evts[i],...data};}
   else evts.push({id:'e'+Date.now(),...data});
+  persist();
   selDate=data.date; closeSheet(); renderPage(); toast2('저장되었습니다');
 }
 
@@ -1160,9 +1302,71 @@ function toast2(msg, type='ok'){
   toastTmr=setTimeout(()=>{ t.className='toast'; }, 2400);
 }
 
+/* ─── Sync UI ────────────────────────────────────────────────────────────────── */
+function updateSyncBtn(){
+  const b=$('syncBtn'); if(!b) return;
+  const on=syncActive();
+  b.classList.toggle('on',on);
+  b.innerHTML=(on?'☁️':'📴')+'<span class="dot"></span>';
+  b.title=on?('동기화 중 · 코드 '+roomCode()):'기기 동기화 설정';
+}
+
+function openSyncSheet(){
+  const configured=firebaseReady();
+  const code=roomCode();
+  showSheet('기기 동기화', `
+    <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:14px">
+      PC와 휴대폰에서 <b style="color:var(--txt)">같은 동기화 코드</b>를 입력하면
+      회원·출석·일정·수업료 데이터가 실시간으로 함께 유지됩니다.
+    </div>
+    ${configured?'':`
+    <div style="background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:11.5px;color:var(--ylw);line-height:1.6">
+      ⚠️ 아직 Firebase가 설정되지 않아 <b>이 기기에만 저장</b>됩니다.<br>
+      실시간 동기화를 켜려면 <code style="color:var(--txt)">index.html</code>의
+      <code style="color:var(--txt)">FIREBASE_CONFIG</code>에 프로젝트 설정을 입력하세요.
+    </div>`}
+    <div class="fg"><label class="fl">동기화 코드</label>
+      <input class="fi" id="syncCode" value="${h(code)}" placeholder="예: ezra-academy-2026"
+        autocapitalize="off" autocomplete="off" spellcheck="false"
+        style="letter-spacing:.5px"></div>
+    <div style="font-size:11px;color:var(--txt3);margin:-4px 0 14px;line-height:1.5">
+      추측하기 어려운 코드를 쓰세요. 코드를 아는 모든 기기가 같은 데이터를 봅니다.
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px;color:var(--txt2)">
+      상태: <b style="color:${syncActive()?'var(--grn)':'var(--txt3)'}">
+        ${syncActive()?'● 동기화 중':(configured?'○ 코드 입력 필요':'○ 로컬 저장만')}</b>
+    </div>
+    <div class="f-actions">
+      <button class="btn btn-s" style="flex:1" onclick="closeSheet()">닫기</button>
+      <button class="btn btn-g" style="flex:2" onclick="applySync()">${configured?'동기화 시작':'코드 저장'}</button>
+    </div>
+  `);
+}
+
+function applySync(){
+  const code=($('syncCode')?.value||'').trim();
+  localStorage.setItem(LS_ROOM, code);
+  if(!firebaseReady()){
+    closeSheet(); updateSyncBtn();
+    toast2(code?'코드 저장됨 (Firebase 설정 필요)':'코드 삭제됨');
+    return;
+  }
+  if(!fbDb){
+    try{
+      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+      fbDb=firebase.database();
+    }catch(e){ toast2('Firebase 초기화 실패','err'); return; }
+  }
+  connectRoom();
+  closeSheet();
+  toast2(code?('동기화 시작 · '+code):'동기화 해제됨');
+}
+
 /* ─── Init ───────────────────────────────────────────────────────────────────── */
+initData();
 renderNav();
 renderPage();
+updateSyncBtn();
 </script>
 </body>
 </html>
