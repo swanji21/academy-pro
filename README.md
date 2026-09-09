@@ -1,5 +1,7 @@
 # Academy Pro ⚽
 
+**한국어** · [English](#academy-pro-english)
+
 축구 아카데미 운영을 위한 모바일 우선 PWA. 회원 관리, 출석 체크, 레슨 일정, 수업료 납부 현황을
 한 화면에서 관리합니다. 별도 빌드 과정 없이 `index.html` 하나로 동작합니다.
 
@@ -124,3 +126,140 @@ const FIREBASE_CONFIG = {
 | --- | --- |
 | Firebase 미설정 / 로그아웃 | 브라우저 localStorage (기기 로컬) |
 | 로그인 | Firebase Realtime Database `academies/{uid}` + localStorage 캐시 |
+
+<br>
+
+---
+
+# Academy Pro (English)
+
+[한국어](#academy-pro-) · **English**
+
+A mobile-first PWA for running a soccer academy. Manage members, attendance,
+lesson schedules, and tuition payment status from a single screen. It runs from
+one `index.html` file — no build step required.
+
+## Features
+
+- **Dashboard** — totals for members, attendance, and payments; per-class stats; unpaid members at a glance
+- **Members** — add / edit / delete, search & filter (class / level / status), pagination
+- **Attendance** — toggle present / late / absent by date and class, mark-all-present
+- **Schedule** — add / edit / delete lessons, color-coded
+- **Tuition** — per-level fees, paid-status toggle, per-class payment overview
+- **Persistence** — all data auto-saved on the device (localStorage)
+- **PC ↔ phone realtime sync** — sign in with Firebase to sync across devices on the same account
+
+## Running it
+
+It's a static file — just serve it over HTTP.
+
+```bash
+# from the repo folder
+python3 -m http.server 8000
+# open http://localhost:8000 in a browser
+```
+
+It works as-is on any static host (GitHub Pages, Vercel, Netlify, etc.).
+
+> Firebase sign-in can be restricted under `file://` (opening the file directly),
+> so serve it via a web server or a host.
+
+## Using it without sync (default)
+
+The app works fully even without Firebase; data is stored **only on that device**.
+To share data across multiple devices, set up Firebase as below.
+
+---
+
+## Firebase setup (PC ↔ phone sync)
+
+Sign in with the same account on your PC and phone, and members / attendance /
+schedule / tuition data sync in realtime. Each account's data is isolated
+(`academies/{uid}`) and only accessible by that account.
+
+### 1. Create a Firebase project
+
+1. Go to the [Firebase console](https://console.firebase.google.com) and **Add project**
+2. Enter a project name (e.g. `academy-pro`) → create
+
+### 2. Enable Email/Password sign-in
+
+1. Left menu **Build → Authentication → Get started**
+2. **Sign-in method** tab → **Email/Password** → **Enable** and save
+
+### 3. Create a Realtime Database
+
+1. Left menu **Build → Realtime Database → Create Database**
+2. Pick a location (e.g. `asia-southeast1`) → choose **Start in locked mode** → create
+3. In the **Rules** tab, replace the rules with the following and **Publish**:
+
+   ```json
+   {
+     "rules": {
+       "academies": {
+         "$uid": {
+           ".read": "auth != null && auth.uid === $uid",
+           ".write": "auth != null && auth.uid === $uid"
+         }
+       }
+     }
+   }
+   ```
+
+   > These rules allow read/write only to the signed-in user's own data (`academies/{your uid}`).
+
+### 4. Copy the web app config
+
+1. Project settings (⚙️) → **General** tab → **Your apps** → add a web app (`</>`)
+2. Register with a nickname, then copy the `firebaseConfig` values shown
+
+### 5. Paste the config into `index.html`
+
+Fill the `FIREBASE_CONFIG` object in `index.html` with your copied values.
+(`databaseURL` must be included; if missing, use the URL at the top of the
+Realtime Database page.)
+
+```js
+const FIREBASE_CONFIG = {
+  apiKey:            "AIza...",
+  authDomain:        "academy-pro.firebaseapp.com",
+  databaseURL:       "https://academy-pro-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "academy-pro",
+  storageBucket:     "academy-pro.appspot.com",
+  messagingSenderId: "1234567890",
+  appId:             "1:1234567890:web:abcdef123456"
+};
+```
+
+### 6. Sign in and use it
+
+1. Open the app, tap the **👤 button** (top right) → **Sign up** to create an account
+2. On another device (e.g. your phone), open the app and **sign in with the same email/password**
+3. Changes on one device now appear on the other in realtime (the header icon turns ☁️ when syncing)
+
+### Sync status icons
+
+| Icon | Meaning |
+| --- | --- |
+| 👤 | Signed out (local-only) or Firebase not configured |
+| ☁️ | Signed in + syncing in realtime |
+
+---
+
+## iPhone tips
+
+- In Safari, use **Share → Add to Home Screen** to install it as a full-screen app.
+- Safe-area insets and the dynamic viewport (`dvh`) keep the bottom tab bar clear of the home indicator / toolbar.
+
+## Tech stack
+
+- Plain HTML/CSS/JavaScript (no framework, no build)
+- Data: localStorage + Firebase Authentication + Realtime Database (compat SDK 10.12.2)
+- Offline / local fallback supported
+
+## Where data is stored
+
+| Situation | Storage |
+| --- | --- |
+| Firebase not configured / signed out | Browser localStorage (device-local) |
+| Signed in | Firebase Realtime Database `academies/{uid}` + localStorage cache |
