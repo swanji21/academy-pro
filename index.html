@@ -553,6 +553,7 @@ body{
      Loaded before the app script so window.firebase is available.
      If offline / blocked, the app falls back to localStorage. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <script>
@@ -628,16 +629,17 @@ function seedData(){
   }
 }
 
-/* ─── Persistence & Sync (localStorage + Firebase Realtime Database) ──────────────
-   • Data persists per-device via localStorage immediately.
-   • When FIREBASE_CONFIG is filled in and a room code is set, the same data
-     is mirrored to Firebase Realtime Database, so a PC and a phone that use
-     the SAME room code stay in sync in realtime (both read + write live).
+/* ─── Persistence, Auth & Sync (localStorage + Firebase Auth + RTDB) ──────────────
+   • Data always persists per-device via localStorage.
+   • With Firebase configured, signing in with the SAME account on a PC and a
+     phone keeps their data in realtime sync. Each account's data lives at
+     academies/{uid} and is private to that account (enforced by security rules).
+   • Signed out (or Firebase unconfigured) → local-only mode; the app still works.
    ────────────────────────────────────────────────────────────────────────────── */
 
-// 1) Paste your Firebase project config here (Project settings → General → Your apps).
-//    Realtime Database must be enabled; keep `databaseURL`.
-//    Leave blank to run in local-only mode (still persists on each device).
+// Paste your Firebase project config here (Project settings → General → Your apps).
+// In the Firebase console enable: Authentication → Sign-in method → Email/Password,
+// and Realtime Database. Leave blank to run local-only (still persists per device).
 const FIREBASE_CONFIG = {
   apiKey:      "",
   authDomain:  "",
@@ -649,17 +651,19 @@ const FIREBASE_CONFIG = {
 };
 
 const LS_DATA = 'academyPro:data';
-const LS_ROOM = 'academyPro:room';
 
-let fbDb = null;             // Firebase database instance (null = local-only)
-let fbRef = null;            // realtime ref to the current room
+let fbDb = null;             // Realtime Database instance
+let fbAuth = null;           // Auth instance
+let fbRef = null;            // realtime ref to the signed-in user's data
+let currentUser = null;      // signed-in Firebase user (null = signed out)
 let applyingRemote = false;  // guard so remote updates don't echo back
 let saveTmr = null;          // debounce timer
 
-function roomCode(){ return (localStorage.getItem(LS_ROOM) || '').trim(); }
 function firebaseReady(){
-  return typeof firebase !== 'undefined' && !!FIREBASE_CONFIG.databaseURL;
+  return typeof firebase !== 'undefined'
+    && !!FIREBASE_CONFIG.apiKey && !!FIREBASE_CONFIG.databaseURL;
 }
+function signedIn(){ return !!currentUser; }
 function syncActive(){ return !!fbRef; }
 
 function snapshot(){ return { members, att, evts }; }
@@ -694,15 +698,14 @@ function persist(){
   }, 250);
 }
 
-// Connect (or reconnect) the realtime listener for the current room code.
-function connectRoom(){
+// Attach the realtime listener for the signed-in user's private data.
+function connectUser(){
   if(fbRef){ try{ fbRef.off(); }catch(e){} fbRef = null; }
-  const code = roomCode();
-  if(!fbDb || !code) return;
-  fbRef = fbDb.ref('academies/' + code);
+  if(!fbDb || !currentUser) return;
+  fbRef = fbDb.ref('academies/' + currentUser.uid);
   fbRef.on('value', snap=>{
     const d = snap.val();
-    if(!d) {                       // brand-new room → upload current data
+    if(!d){                        // first sign-in with no cloud data → upload local
       persist();
       updateSyncBtn();
       return;
@@ -716,24 +719,34 @@ function connectRoom(){
   }, err=>console.warn('[sync] listen failed', err));
   updateSyncBtn();
 }
+function disconnectUser(){
+  if(fbRef){ try{ fbRef.off(); }catch(e){} fbRef = null; }
+  updateSyncBtn();
+}
 
-// Boot the data layer: load local → init Firebase → seed if empty.
+// Boot the data layer: load local → init Firebase + auth listener → seed if empty.
 function initData(){
   const hadLocal = loadLocal();
 
   if(firebaseReady()){
     try{
       if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-      fbDb = firebase.database();
-    }catch(e){ console.warn('[sync] init failed', e); fbDb = null; }
+      fbDb   = firebase.database();
+      fbAuth = firebase.auth();
+      fbAuth.onAuthStateChanged(u=>{
+        currentUser = u || null;
+        if(currentUser) connectUser(); else disconnectUser();
+        updateSyncBtn();
+        // keep the account sheet fresh if it's open
+        if(document.getElementById('authPanel')) openSyncSheet();
+      });
+    }catch(e){ console.warn('[sync] init failed', e); fbDb = null; fbAuth = null; }
   }
 
   if(!hadLocal && !members.length){   // first ever run on this device
     seedData();
     saveLocal();
   }
-
-  if(fbDb && roomCode()) connectRoom();   // realtime listener will reconcile
 }
 
 /* ─── State ─────────────────────────────────────────────────────────────────── */
@@ -1302,64 +1315,119 @@ function toast2(msg, type='ok'){
   toastTmr=setTimeout(()=>{ t.className='toast'; }, 2400);
 }
 
-/* ─── Sync UI ────────────────────────────────────────────────────────────────── */
+/* ─── Account / Sync UI ──────────────────────────────────────────────────────── */
 function updateSyncBtn(){
   const b=$('syncBtn'); if(!b) return;
   const on=syncActive();
   b.classList.toggle('on',on);
-  b.innerHTML=(on?'☁️':'📴')+'<span class="dot"></span>';
-  b.title=on?('동기화 중 · 코드 '+roomCode()):'기기 동기화 설정';
+  b.innerHTML=(on?'☁️':'👤')+'<span class="dot"></span>';
+  b.title = on ? ('동기화 중 · '+(currentUser?.email||''))
+               : (firebaseReady() ? '로그인하여 동기화' : '계정 · 동기화');
+}
+
+// Human-readable Korean messages for common Firebase auth error codes.
+function authError(e){
+  const m={
+    'auth/invalid-email':'이메일 형식이 올바르지 않습니다',
+    'auth/user-not-found':'등록되지 않은 계정입니다',
+    'auth/wrong-password':'비밀번호가 올바르지 않습니다',
+    'auth/invalid-credential':'이메일 또는 비밀번호가 올바르지 않습니다',
+    'auth/email-already-in-use':'이미 가입된 이메일입니다',
+    'auth/weak-password':'비밀번호는 6자 이상이어야 합니다',
+    'auth/missing-password':'비밀번호를 입력하세요',
+    'auth/network-request-failed':'네트워크 오류. 연결을 확인하세요',
+    'auth/too-many-requests':'시도가 너무 많습니다. 잠시 후 다시 시도하세요',
+    'auth/operation-not-allowed':'Firebase 콘솔에서 이메일/비밀번호 로그인을 활성화하세요'
+  };
+  return m[e && e.code] || (e && e.message) || '인증 오류';
 }
 
 function openSyncSheet(){
   const configured=firebaseReady();
-  const code=roomCode();
-  showSheet('기기 동기화', `
-    <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:14px">
-      PC와 휴대폰에서 <b style="color:var(--txt)">같은 동기화 코드</b>를 입력하면
-      회원·출석·일정·수업료 데이터가 실시간으로 함께 유지됩니다.
+  let inner;
+
+  if(!configured){
+    inner = `
+    <div style="background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--ylw);line-height:1.65">
+      ⚠️ 아직 Firebase가 설정되지 않아 <b>이 기기에만 저장</b>됩니다.<br><br>
+      로그인·동기화를 켜려면 <code style="color:var(--txt)">index.html</code>의
+      <code style="color:var(--txt)">FIREBASE_CONFIG</code>에 프로젝트 설정을 입력하고,
+      Firebase 콘솔에서 <b>Authentication(이메일/비밀번호)</b>과
+      <b>Realtime Database</b>를 활성화하세요.
     </div>
-    ${configured?'':`
-    <div style="background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:11px 13px;margin-bottom:14px;font-size:11.5px;color:var(--ylw);line-height:1.6">
-      ⚠️ 아직 Firebase가 설정되지 않아 <b>이 기기에만 저장</b>됩니다.<br>
-      실시간 동기화를 켜려면 <code style="color:var(--txt)">index.html</code>의
-      <code style="color:var(--txt)">FIREBASE_CONFIG</code>에 프로젝트 설정을 입력하세요.
-    </div>`}
-    <div class="fg"><label class="fl">동기화 코드</label>
-      <input class="fi" id="syncCode" value="${h(code)}" placeholder="예: ezra-academy-2026"
-        autocapitalize="off" autocomplete="off" spellcheck="false"
-        style="letter-spacing:.5px"></div>
-    <div style="font-size:11px;color:var(--txt3);margin:-4px 0 14px;line-height:1.5">
-      추측하기 어려운 코드를 쓰세요. 코드를 아는 모든 기기가 같은 데이터를 봅니다.
+    <div class="f-actions" style="margin-top:16px">
+      <button class="btn btn-s" style="flex:1" onclick="closeSheet()">닫기</button>
+    </div>`;
+  } else if(signedIn()){
+    inner = `
+    <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:16px">
+      다른 기기에서도 <b style="color:var(--txt)">같은 계정</b>으로 로그인하면
+      데이터가 실시간으로 동기화됩니다.
     </div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:12px;color:var(--txt2)">
-      상태: <b style="color:${syncActive()?'var(--grn)':'var(--txt3)'}">
-        ${syncActive()?'● 동기화 중':(configured?'○ 코드 입력 필요':'○ 로컬 저장만')}</b>
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">로그인 계정</div>
+      <div style="font-size:15px;font-weight:700;color:var(--txt);word-break:break-all">${h(currentUser.email||'(익명)')}</div>
+      <div style="margin-top:10px;font-size:12px;color:var(--txt2)">
+        상태: <b style="color:${syncActive()?'var(--grn)':'var(--org)'}">
+          ${syncActive()?'● 실시간 동기화 중':'○ 연결 중…'}</b>
+      </div>
     </div>
     <div class="f-actions">
       <button class="btn btn-s" style="flex:1" onclick="closeSheet()">닫기</button>
-      <button class="btn btn-g" style="flex:2" onclick="applySync()">${configured?'동기화 시작':'코드 저장'}</button>
+      <button class="btn btn-d" style="flex:1" onclick="doLogout()">로그아웃</button>
+    </div>`;
+  } else {
+    inner = `
+    <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:16px">
+      PC와 휴대폰에서 <b style="color:var(--txt)">같은 계정</b>으로 로그인하면
+      회원·출석·일정·수업료 데이터가 실시간으로 함께 유지됩니다.
     </div>
-  `);
+    <div class="fg"><label class="fl">이메일</label>
+      <input class="fi" id="authEmail" type="email" inputmode="email" placeholder="you@example.com"
+        autocapitalize="off" autocomplete="username" spellcheck="false"></div>
+    <div class="fg"><label class="fl">비밀번호</label>
+      <input class="fi" id="authPw" type="password" placeholder="6자 이상"
+        autocomplete="current-password"></div>
+    <div class="f-actions" style="margin-top:6px">
+      <button class="btn btn-s" style="flex:1" onclick="doSignup()">회원가입</button>
+      <button class="btn btn-g" style="flex:2" onclick="doLogin()">로그인</button>
+    </div>
+    <div style="font-size:11px;color:var(--txt3);margin-top:12px;line-height:1.5;text-align:center">
+      처음이면 <b>회원가입</b>으로 계정을 만든 뒤, 다른 기기에서 같은 이메일로 로그인하세요.
+    </div>`;
+  }
+
+  showSheet('계정 · 동기화', `<div id="authPanel">${inner}</div>`);
 }
 
-function applySync(){
-  const code=($('syncCode')?.value||'').trim();
-  localStorage.setItem(LS_ROOM, code);
-  if(!firebaseReady()){
-    closeSheet(); updateSyncBtn();
-    toast2(code?'코드 저장됨 (Firebase 설정 필요)':'코드 삭제됨');
-    return;
-  }
-  if(!fbDb){
-    try{
-      if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-      fbDb=firebase.database();
-    }catch(e){ toast2('Firebase 초기화 실패','err'); return; }
-  }
-  connectRoom();
-  closeSheet();
-  toast2(code?('동기화 시작 · '+code):'동기화 해제됨');
+function _readAuthForm(){
+  return {
+    email:($('authEmail')?.value||'').trim(),
+    pw:$('authPw')?.value||''
+  };
+}
+function doLogin(){
+  if(!fbAuth){ toast2('Firebase가 설정되지 않았습니다','err'); return; }
+  const {email,pw}=_readAuthForm();
+  if(!email||!pw){ toast2('이메일과 비밀번호를 입력하세요','err'); return; }
+  fbAuth.signInWithEmailAndPassword(email,pw)
+    .then(()=>{ closeSheet(); toast2('로그인되었습니다'); })
+    .catch(e=>toast2(authError(e),'err'));
+}
+function doSignup(){
+  if(!fbAuth){ toast2('Firebase가 설정되지 않았습니다','err'); return; }
+  const {email,pw}=_readAuthForm();
+  if(!email||!pw){ toast2('이메일과 비밀번호를 입력하세요','err'); return; }
+  if(pw.length<6){ toast2('비밀번호는 6자 이상이어야 합니다','err'); return; }
+  fbAuth.createUserWithEmailAndPassword(email,pw)
+    .then(()=>{ closeSheet(); toast2('가입 및 로그인 완료'); })
+    .catch(e=>toast2(authError(e),'err'));
+}
+function doLogout(){
+  if(!fbAuth) return;
+  fbAuth.signOut()
+    .then(()=>{ closeSheet(); toast2('로그아웃되었습니다'); })
+    .catch(e=>toast2(authError(e),'err'));
 }
 
 /* ─── Init ───────────────────────────────────────────────────────────────────── */
