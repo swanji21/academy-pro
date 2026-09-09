@@ -1,17 +1,24 @@
-# Academy Pro ⚽
+# EZRA FOOTBALL CLUB ⚽
 
-**한국어** · [English](#academy-pro-english)
+**한국어** · [English](#ezra-football-club-english)
 
-축구 아카데미 운영을 위한 모바일 우선 PWA. 회원 관리, 출석 체크, 레슨 일정, 수업료 납부 현황을
+EZRA FOOTBALL CLUB 운영을 위한 모바일 우선 PWA. 회원 관리, 출석 체크, 레슨 일정, 수업료를
 한 화면에서 관리합니다. 별도 빌드 과정 없이 `index.html` 하나로 동작합니다.
+
+## 요금제 구조
+
+- **회원제** — 개인레슨 / 그룹레슨, **성인·유소년** 구분, **2달치 또는 3달치** 결제
+- **비회원제** — 원포인트레슨, **1일(1회)** 결제
+- **요금표 직접 편집** — 수업료 화면의 **⚙️ 요금 설정**에서 목록별 금액을 설정하면
+  회원 등록·수업료 계산에 자동 적용됩니다 (Firebase로 동기화)
 
 ## 주요 기능
 
 - **대시보드** — 전체 회원·출석·납부 현황, 반별 통계, 미납 회원 한눈에 보기
-- **회원 관리** — 등록·수정·삭제, 검색·필터(반/레벨/상태), 페이지네이션
+- **회원 관리** — 등록·수정·삭제(레슨 유형·구분·결제개월 선택 시 금액 자동 계산), 검색·필터(반/유형/상태)
 - **출석 체크** — 날짜·반별 출석/지각/결석 토글, 전체 출석 처리
 - **레슨 일정** — 일정 추가·수정·삭제, 색상 분류
-- **수업료** — 레벨별 수업료, 납부 상태 토글, 반별 납부 현황
+- **수업료** — 편집 가능한 요금표, 납부 상태 토글, 반별 납부 현황
 - **데이터 지속성** — 모든 데이터가 기기에 자동 저장 (localStorage)
 - **PC ↔ 폰 실시간 동기화** — Firebase 로그인 시 같은 계정 기기끼리 실시간 동기화
 
@@ -131,21 +138,28 @@ const FIREBASE_CONFIG = {
 
 ---
 
-# Academy Pro (English)
+# EZRA FOOTBALL CLUB (English)
 
-[한국어](#academy-pro-) · **English**
+[한국어](#ezra-football-club-) · **English**
 
-A mobile-first PWA for running a soccer academy. Manage members, attendance,
-lesson schedules, and tuition payment status from a single screen. It runs from
-one `index.html` file — no build step required.
+A mobile-first PWA for running EZRA FOOTBALL CLUB. Manage members, attendance,
+lesson schedules, and tuition from a single screen. It runs from one
+`index.html` file — no build step required.
+
+## Pricing model
+
+- **Membership** — personal / group lessons, **adult vs youth**, paid per **2 or 3 months**
+- **Non-membership** — one-point lesson, paid **per day (single session)**
+- **Editable price list** — set each price under **⚙️ Pricing** on the Tuition screen;
+  it applies automatically to member registration and tuition (synced via Firebase)
 
 ## Features
 
 - **Dashboard** — totals for members, attendance, and payments; per-class stats; unpaid members at a glance
-- **Members** — add / edit / delete, search & filter (class / level / status), pagination
+- **Members** — add / edit / delete (fee auto-calculated from lesson type / category / term), search & filter (class / type / status)
 - **Attendance** — toggle present / late / absent by date and class, mark-all-present
 - **Schedule** — add / edit / delete lessons, color-coded
-- **Tuition** — per-level fees, paid-status toggle, per-class payment overview
+- **Tuition** — editable price list, paid-status toggle, per-class payment overview
 - **Persistence** — all data auto-saved on the device (localStorage)
 - **PC ↔ phone realtime sync** — sign in with Firebase to sync across devices on the same account
 

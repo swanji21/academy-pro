@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Academy Pro">
+<meta name="apple-mobile-web-app-title" content="EZRA FC">
 <meta name="theme-color" content="#07090f">
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-<title>Academy Pro</title>
+<title>EZRA FOOTBALL CLUB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
@@ -526,7 +526,7 @@ body{
 <body>
 <div id="shell">
   <header id="hdr">
-    <div class="hdr-logo">⚽</div>
+    <div class="hdr-logo">⚽ EZRA FC</div>
     <div class="hdr-title" id="hdrTitle">대시보드</div>
     <button class="sync-btn" id="syncBtn" onclick="openSyncSheet()" title="기기 동기화">☁️</button>
     <div class="hdr-right" id="hdrRight"></div>
@@ -559,13 +559,23 @@ body{
 <script>
 'use strict';
 /* ─── Constants ────────────────────────────────────────────────────────────── */
-const LEVELS  = ['입문','초급','중급','고급','선수반'];
+// 레슨 유형: 개인/그룹레슨 = 회원제(2·3달치), 원포인트레슨 = 비회원제(1일)
+const LTYPES  = ['개인레슨','그룹레슨','원포인트레슨'];
+const CATS    = ['성인','유소년'];
+const TERMS   = ['2','3'];   // 회원제 결제 개월 (2달치 / 3달치)
 const GROUPS  = ['A반(월수)','B반(화목)','C반(주말)','D반(월수금)','E반(토일)'];
 const POS     = ['FW','MF','DF','GK','없음'];
 const COACHES = ['김코치','박코치','이코치'];
 const STATS   = ['활성','휴강','대기'];
-const FEE     = {입문:100000,초급:120000,중급:150000,고급:180000,선수반:220000};
-const LVC     = {입문:'#0891b2',초급:'#22c55e',중급:'#f97316',고급:'#ea580c',선수반:'#a855f7'};
+const LTC     = {개인레슨:'#3b82f6',그룹레슨:'#22c55e',원포인트레슨:'#f97316'};
+function isMembership(ltype){ return ltype==='개인레슨'||ltype==='그룹레슨'; }
+// 기본 요금표 — 앱의 "요금 설정"에서 수정 가능하며 Firebase로 동기화됩니다.
+// 회원제: 성인/유소년별 2달치(m2)·3달치(m3) 총액. 원포인트: 단일 1회(once) 요금.
+const DEFAULT_PRICING = {
+  개인레슨:   { 성인:{m2:400000,m3:570000}, 유소년:{m2:360000,m3:510000} },
+  그룹레슨:   { 성인:{m2:240000,m3:330000}, 유소년:{m2:200000,m3:270000} },
+  원포인트레슨:{ once:50000 }
+};
 const STC     = {활성:'#22c55e',휴강:'#f97316',대기:'#6b7280'};
 const ECOLS   = ['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444','#06b6d4'];
 const ETITLES = ['정규 레슨','개인 레슨','그룹 레슨','전술 훈련','체력 훈련','대회 준비'];
@@ -581,6 +591,16 @@ const FDY = (y,m) => new Date(y,m,1).getDay();
 
 /* ─── Data ──────────────────────────────────────────────────────────────────── */
 let members = [], att = {}, evts = [];
+let pricing = JSON.parse(JSON.stringify(DEFAULT_PRICING));  // 편집·동기화되는 요금표
+
+// 회원 1명의 결제 금액(원) — 회원제는 유형·구분·개월수, 원포인트는 단일 요금.
+function memberFee(m){
+  const p = pricing[m.ltype]; if(!p) return 0;
+  if(!isMembership(m.ltype)) return p.once||0;
+  const byCat = p[m.cat]||p['성인']||{}; return (m.term==='3'?byCat.m3:byCat.m2)||0;
+}
+// 회원 결제 단위 라벨 (예: "2달치", "3달치", "1일")
+function feeUnit(m){ return isMembership(m.ltype) ? (m.term==='3'?'3달치':'2달치') : '1일'; }
 
 function seedData(){
   const NAMES=['김민준','이서연','박도현','최수아','정우진','강지호','윤예린','장현우','임나연','한태양',
@@ -588,14 +608,16 @@ function seedData(){
                '고민수','노아름','류준혁','문채원','변태민','서지수','심병준','양예지','엄강민','장수빈',
                '조현서','진가람','채민재','한보람','허성민','홍지원'];
   NAMES.forEach((name,i)=>{
-    const lvl=LEVELS[i%LEVELS.length];
+    const ltype=LTYPES[i%LTYPES.length];
+    const cat=CATS[i%CATS.length];
+    const term=String(2+(i%2));   // '2' 또는 '3'
     const dago=30+Math.floor(Math.random()*370);
     const jd=new Date(); jd.setDate(jd.getDate()-dago);
     const id='m'+i;
     members.push({id,name,
       phone:`010-${1000+~~(Math.random()*8999)}-${1000+~~(Math.random()*8999)}`,
       birth:`${2000+i%12}-${String((i%12)+1).padStart(2,'0')}-15`,
-      level:lvl, group:GROUPS[i%GROUPS.length], pos:POS[i%POS.length],
+      ltype, cat, term, group:GROUPS[i%GROUPS.length], pos:POS[i%POS.length],
       coach:COACHES[i%COACHES.length], status:i%9===0?'휴강':i%14===0?'대기':'활성',
       joinDate:jd.toISOString().slice(0,10),
       paid:i%3!==0, paidDate:i%3!==0?TODAY:null,
@@ -666,12 +688,13 @@ function firebaseReady(){
 function signedIn(){ return !!currentUser; }
 function syncActive(){ return !!fbRef; }
 
-function snapshot(){ return { members, att, evts }; }
+function snapshot(){ return { members, att, evts, pricing }; }
 function applyData(d){
   if(!d || typeof d !== 'object') return false;
   members = Array.isArray(d.members) ? d.members : [];
   att     = (d.att && typeof d.att === 'object') ? d.att : {};
   evts    = Array.isArray(d.evts) ? d.evts : [];
+  if(d.pricing && typeof d.pricing === 'object') pricing = d.pricing;
   return true;
 }
 
@@ -769,8 +792,8 @@ const stats = () => {
     total:members.length,
     active:members.filter(m=>m.status==='활성').length,
     paidCnt:paid.length, unpaidCnt:unpaid.length,
-    revenue:paid.reduce((s,m)=>s+FEE[m.level],0),
-    pending:unpaid.reduce((s,m)=>s+FEE[m.level],0),
+    revenue:paid.reduce((s,m)=>s+memberFee(m),0),
+    pending:unpaid.reduce((s,m)=>s+memberFee(m),0),
     todayAtt:members.filter(m=>att[m.id]?.[TODAY]==='present').length,
     avgAtt:members.length?~~(members.reduce((a,m)=>a+attRate(m.id),0)/members.length):0
   };
@@ -780,7 +803,7 @@ const filtered = () => members
     const q=srch.toLowerCase();
     return (!q||m.name.includes(q)||m.phone.includes(q))
       &&(fGrp==='전체'||m.group===fGrp)
-      &&(fLvl==='전체'||m.level===fLvl)
+      &&(fLvl==='전체'||m.ltype===fLvl)
       &&(fStat==='전체'||m.status===fStat);
   })
   .sort((a,b)=>a.name.localeCompare(b.name,'ko'));
@@ -808,6 +831,7 @@ function renderPage(){
   $('hdrRight').innerHTML='';
   if(view==='members')   $('hdrRight').innerHTML=`<button class="btn btn-g btn-sm" onclick="openMemberForm()">+ 등록</button>`;
   if(view==='schedule')  $('hdrRight').innerHTML=`<button class="btn btn-g btn-sm" onclick="openEvtForm()">+ 추가</button>`;
+  if(view==='payment')   $('hdrRight').innerHTML=`<button class="btn btn-s btn-sm" onclick="openPricingForm()">⚙️ 요금 설정</button>`;
   const map={dashboard:vDash,members:vMembers,attendance:vAtt,schedule:vSched,payment:vPay};
   $('page').innerHTML=`<div class="fade">${map[view]()}</div>`;
   if(view==='members') bindMemberEvents();
@@ -889,7 +913,7 @@ function vMembers(){
 </div>
 <div class="chips" id="chips2">
   <span class="chip ${fLvl==='전체'?'on':''}" data-flvl="전체">전체</span>
-  ${LEVELS.map(l=>`<span class="chip ${fLvl===l?'on':''}" data-flvl="${h(l)}">${h(l)}</span>`).join('')}
+  ${LTYPES.map(l=>`<span class="chip ${fLvl===l?'on':''}" data-flvl="${h(l)}">${h(l)}</span>`).join('')}
   <span style="color:var(--bdr2);padding:6px 0">│</span>
   ${STATS.map(s=>`<span class="chip ${fStat===s?'on':''}" data-fstat="${h(s)}">${h(s)}</span>`).join('')}
 </div>
@@ -932,10 +956,11 @@ function reMlist(){
     <div class="card" style="margin:0 16px;overflow:hidden">
       ${slice.map(m=>`
         <div class="mrow" onclick="openMemberDetail('${m.id}')">
-          <div class="ava" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.name[0]}</div>
+          <div class="ava" style="background:${LTC[m.ltype]}20;color:${LTC[m.ltype]}">${m.name[0]}</div>
           <div class="minfo">
             <div class="mname">${h(m.name)}
-              <span class="badge" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.level}</span>
+              <span class="badge" style="background:${LTC[m.ltype]}20;color:${LTC[m.ltype]}">${h(m.ltype)}</span>
+              ${isMembership(m.ltype)?`<span class="badge" style="background:var(--surf3);color:var(--txt2)">${h(m.cat)}</span>`:`<span class="badge" style="background:var(--surf3);color:var(--txt2)">비회원</span>`}
             </div>
             <div class="msub">${h(m.group)} · ${m.coach} · <span style="color:${STC[m.status]}">${m.status}</span></div>
             <div class="prog-wrap">
@@ -944,7 +969,8 @@ function reMlist(){
             </div>
           </div>
           <div class="mright">
-            <div class="mfee">${~~(FEE[m.level]/10000)}만원</div>
+            <div class="mfee">${~~(memberFee(m)/10000)}만원</div>
+            <div style="font-size:9px;color:var(--txt3)">${feeUnit(m)}</div>
             <div class="mpaid" style="color:${m.paid?'var(--grn)':'var(--org)'}">${m.paid?'납부':'미납'}</div>
           </div>
         </div>`).join('')}
@@ -991,7 +1017,7 @@ function vAtt(){
         return`<div class="att-card ${s||'absent'}" onclick="cycleAtt('${m.id}')">
           <div>
             <div style="font-size:13px;font-weight:700">${h(m.name)}</div>
-            <div style="font-size:10px;color:var(--txt3)">${m.level} · 출석률 ${attRate(m.id)}%</div>
+            <div style="font-size:10px;color:var(--txt3)">${h(m.ltype)} · 출석률 ${attRate(m.id)}%</div>
           </div>
           <div class="att-status ${s||'absent'}">${lbl}</div>
         </div>`;
@@ -1097,18 +1123,59 @@ function vPay(){
   ${[...members].sort((a,b)=>a.paid===b.paid?0:a.paid?1:-1).map(m=>`
     <div class="pay-card ${m.paid?'paid':'unpaid'}" onclick="togglePaid('${m.id}')">
       <div style="display:flex;align-items:center;gap:10px">
-        <div class="ava" style="width:36px;height:36px;font-size:13px;background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.name[0]}</div>
+        <div class="ava" style="width:36px;height:36px;font-size:13px;background:${LTC[m.ltype]}20;color:${LTC[m.ltype]}">${m.name[0]}</div>
         <div>
           <div style="font-size:13px;font-weight:700">${h(m.name)}</div>
-          <div style="font-size:10px;color:var(--txt3)">${h(m.group)} · ${m.level}${m.paidDate?' · '+m.paidDate:''}</div>
+          <div style="font-size:10px;color:var(--txt3)">${h(m.ltype)}${isMembership(m.ltype)?' · '+h(m.cat):''} · ${feeUnit(m)}${m.paidDate?' · '+m.paidDate:''}</div>
         </div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:13px;font-weight:700;color:${m.paid?'var(--grn)':'var(--org)'}">${W(FEE[m.level])}</div>
+        <div style="font-size:13px;font-weight:700;color:${m.paid?'var(--grn)':'var(--org)'}">${W(memberFee(m))}</div>
         <div style="font-size:10px;font-weight:700;color:${m.paid?'var(--grn)':'var(--red)'}">${m.paid?'✓ 납부':'미납'}</div>
       </div>
     </div>`).join('')}
 </div>`;
+}
+
+/* ─── Pricing editor (요금 설정) ───────────────────────────────────────────────── */
+const TYK={'개인레슨':'ind','그룹레슨':'grp'};
+const CATK={'성인':'ad','유소년':'yo'};
+function openPricingForm(){
+  const p=pricing;
+  const block=(ty)=>`
+    <div style="font-size:12.5px;font-weight:700;color:${LTC[ty]};margin:16px 0 8px">${ty}
+      <span style="color:var(--txt3);font-weight:400;font-size:10px">· 회원제 총액(원)</span></div>
+    ${CATS.map(cat=>`
+      <div class="frow">
+        <div class="fg"><label class="fl">${cat} · 2달치</label>
+          <input class="fi" type="number" inputmode="numeric" id="pr_${TYK[ty]}_${CATK[cat]}_m2" value="${(p[ty]&&p[ty][cat]&&p[ty][cat].m2)||0}"></div>
+        <div class="fg"><label class="fl">${cat} · 3달치</label>
+          <input class="fi" type="number" inputmode="numeric" id="pr_${TYK[ty]}_${CATK[cat]}_m3" value="${(p[ty]&&p[ty][cat]&&p[ty][cat].m3)||0}"></div>
+      </div>`).join('')}`;
+  showSheet('요금 설정', `
+    <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:2px">
+      목록별 금액을 설정하면 <b style="color:var(--txt)">회원 등록·수업료</b>에 자동 적용됩니다.
+    </div>
+    ${block('개인레슨')}
+    ${block('그룹레슨')}
+    <div style="font-size:12.5px;font-weight:700;color:${LTC['원포인트레슨']};margin:16px 0 8px">원포인트레슨
+      <span style="color:var(--txt3);font-weight:400;font-size:10px">· 비회원제 · 1일(원)</span></div>
+    <div class="fg"><label class="fl">1회 요금</label>
+      <input class="fi" type="number" inputmode="numeric" id="pr_one_once" value="${(p['원포인트레슨']&&p['원포인트레슨'].once)||0}"></div>
+    <div class="f-actions" style="margin-top:18px">
+      <button class="btn btn-s" style="flex:1" onclick="closeSheet()">취소</button>
+      <button class="btn btn-g" style="flex:2" onclick="savePricing()">저장</button>
+    </div>
+  `);
+}
+function savePricing(){
+  const g=id=>{const el=$(id);return Math.max(0, parseInt(String(el?.value||'0').replace(/[^0-9]/g,''))||0);};
+  pricing={
+    개인레슨:   {성인:{m2:g('pr_ind_ad_m2'),m3:g('pr_ind_ad_m3')},유소년:{m2:g('pr_ind_yo_m2'),m3:g('pr_ind_yo_m3')}},
+    그룹레슨:   {성인:{m2:g('pr_grp_ad_m2'),m3:g('pr_grp_ad_m3')},유소년:{m2:g('pr_grp_yo_m2'),m3:g('pr_grp_yo_m3')}},
+    원포인트레슨:{once:g('pr_one_once')}
+  };
+  persist(); closeSheet(); renderPage(); toast2('요금표가 저장되었습니다');
 }
 
 /* ─── Member Detail ──────────────────────────────────────────────────────────── */
@@ -1117,11 +1184,12 @@ function openMemberDetail(id){
   const ar=attRate(m.id);
   showSheet('',`
     <div class="det-hdr">
-      <div class="det-ava" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.name[0]}</div>
+      <div class="det-ava" style="background:${LTC[m.ltype]}20;color:${LTC[m.ltype]}">${m.name[0]}</div>
       <div class="det-name">${h(m.name)}</div>
       <div class="det-phone">${m.phone}</div>
-      <div style="display:flex;gap:6px;justify-content:center">
-        <span class="badge" style="background:${LVC[m.level]}20;color:${LVC[m.level]}">${m.level}</span>
+      <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+        <span class="badge" style="background:${LTC[m.ltype]}20;color:${LTC[m.ltype]}">${h(m.ltype)}</span>
+        <span class="badge" style="background:var(--surf3);color:var(--txt2)">${isMembership(m.ltype)?h(m.cat)+' · 회원제':'비회원'}</span>
         <span class="badge" style="background:${STC[m.status]}20;color:${STC[m.status]}">${m.status}</span>
       </div>
     </div>
@@ -1137,10 +1205,10 @@ function openMemberDetail(id){
       </div>
     </div>
     <div class="info-grid">
-      ${[['반',m.group],['포지션',m.pos],['담당 코치',m.coach],['등록일',m.joinDate],['생년월일',m.birth||'-'],['월 수업료',W(FEE[m.level])]].map(([k,v])=>`
+      ${[['결제 단위',feeUnit(m)],['반',m.group],['담당 코치',m.coach],['등록일',m.joinDate],['생년월일',m.birth||'-'],[feeUnit(m)+' 요금',W(memberFee(m))]].map(([k,v])=>`
         <div class="info-cell">
           <div class="info-lbl">${k}</div>
-          <div class="info-val" ${k==='월 수업료'?'style="color:var(--grn)"':''}>${h(v)}</div>
+          <div class="info-val" ${k.endsWith('요금')?'style="color:var(--grn)"':''}>${h(v)}</div>
         </div>`).join('')}
     </div>
     <div style="padding:0 16px 8px">
@@ -1170,8 +1238,14 @@ function openMemberForm(id){
       <div class="fg"><label class="fl">등록일</label><input class="fi" type="date" id="fjd" value="${m?.joinDate||TODAY}"></div>
     </div>
     <div class="frow">
-      <div class="fg"><label class="fl">레벨</label>
-        <select class="fi" id="fl_">${LEVELS.map(l=>`<option ${(m?.level||'초급')===l?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="fg"><label class="fl">레슨 유형</label>
+        <select class="fi" id="fty" onchange="onTypeChange()">${LTYPES.map(l=>`<option ${(m?.ltype||'개인레슨')===l?'selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="fg" id="wrapCat"><label class="fl">구분</label>
+        <select class="fi" id="fcat" onchange="recalcFee()">${CATS.map(c=>`<option ${(m?.cat||'성인')===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    </div>
+    <div class="frow">
+      <div class="fg" id="wrapTerm"><label class="fl">결제</label>
+        <select class="fi" id="fterm" onchange="recalcFee()">${TERMS.map(t=>`<option value="${t}" ${(m?.term||'2')===t?'selected':''}>${t}달치</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">반</label>
         <select class="fi" id="fg_">${GROUPS.map(g=>`<option ${(m?.group||GROUPS[0])===g?'selected':''}>${h(g)}</option>`).join('')}</select></div>
     </div>
@@ -1185,8 +1259,8 @@ function openMemberForm(id){
       <div class="fg"><label class="fl">상태</label>
         <select class="fi" id="fst">${STATS.map(s=>`<option ${(m?.status||'활성')===s?'selected':''}>${s}</option>`).join('')}</select></div>
       <div class="fg">
-        <label class="fl">월 수업료</label>
-        <div class="fi-fee"><div id="feeShow" style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--grn)">${W(FEE[m?.level||'초급'])}</div></div>
+        <label class="fl">결제 금액</label>
+        <div class="fi-fee"><div id="feeShow" style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--grn)"></div></div>
       </div>
     </div>
     <div class="fg"><label class="fl">메모</label>
@@ -1196,16 +1270,30 @@ function openMemberForm(id){
       <button class="btn btn-g" style="flex:2" onclick="saveMember('${m?.id||''}')">저장</button>
     </div>
   `);
-  setTimeout(()=>{
-    $('fl_')?.addEventListener('change',function(){$('feeShow').textContent=W(FEE[this.value]);});
-  },50);
+  setTimeout(onTypeChange,20);
+}
+
+// 레슨 유형에 따라 구분/결제 필드 표시 여부 전환 + 금액 갱신
+function onTypeChange(){
+  const mem=isMembership($('fty')?.value);
+  if($('wrapCat'))  $('wrapCat').style.display  = mem?'':'none';
+  if($('wrapTerm')) $('wrapTerm').style.display = mem?'':'none';
+  recalcFee();
+}
+function recalcFee(){
+  const ty=$('fty')?.value, cat=$('fcat')?.value, term=$('fterm')?.value;
+  const fee=memberFee({ltype:ty,cat,term});
+  const unit=isMembership(ty)?(term==='3'?'3달치':'2달치'):'1일';
+  if($('feeShow')) $('feeShow').innerHTML=
+    `${W(fee)}<span style="font-family:'Noto Sans KR';font-size:11px;color:var(--txt3);font-weight:400"> / ${unit}</span>`;
 }
 
 function saveMember(id){
   const name=($('fn')?.value||'').trim();
   if(!name){toast2('이름을 입력하세요','err');return;}
   const data={name,phone:$('fp')?.value||'',birth:$('fb')?.value||'',
-    level:$('fl_')?.value||'초급',group:$('fg_')?.value||GROUPS[0],
+    ltype:$('fty')?.value||'개인레슨',cat:$('fcat')?.value||'성인',term:$('fterm')?.value||'2',
+    group:$('fg_')?.value||GROUPS[0],
     pos:$('fpos')?.value||'없음',coach:$('fco')?.value||COACHES[0],
     status:$('fst')?.value||'활성',joinDate:$('fjd')?.value||TODAY,
     notes:$('fno')?.value||''};
