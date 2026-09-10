@@ -564,7 +564,6 @@ const CATK    = {'성인':'ad','유소년':'yo'};
 const TERMS   = ['2','3'];              // 회원제 결제 개월 (2달치 / 3달치)
 const FREQS   = [1,2,3,4,5];            // 주 N회
 const POS     = ['FW','MF','DF','GK','없음'];
-const COACHES = ['김코치','박코치','이코치'];
 const STATS   = ['활성','휴강','대기'];
 const STC     = {활성:'#22c55e',휴강:'#f97316',대기:'#6b7280'};
 const LTC_PAL = ['#3b82f6','#22c55e','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
@@ -582,6 +581,7 @@ const DEFAULT_CONFIG = {
     { name:'원포인트레슨', membership:false }
   ],
   groups: ['A반(월수)','B반(화목)','C반(주말)','D반(월수금)','E반(토일)'],
+  coaches: ['김코치','박코치','이코치'],
   pricing: {
     '개인레슨':   { 성인:{f1:150000,f2:280000,f3:390000,f4:480000,f5:550000}, 유소년:{f1:130000,f2:240000,f3:330000,f4:400000,f5:460000} },
     '그룹레슨':   { 성인:{f1:90000, f2:160000,f3:210000,f4:250000,f5:280000}, 유소년:{f1:80000, f2:140000,f3:180000,f4:210000,f5:240000} },
@@ -614,6 +614,7 @@ function normalizeCfg(){
   if(!cfg || typeof cfg!=='object') cfg = clone(DEFAULT_CONFIG);
   if(!Array.isArray(cfg.ltypes) || !cfg.ltypes.length) cfg.ltypes = clone(DEFAULT_CONFIG.ltypes);
   if(!Array.isArray(cfg.groups) || !cfg.groups.length) cfg.groups = DEFAULT_CONFIG.groups.slice();
+  if(!Array.isArray(cfg.coaches) || !cfg.coaches.length) cfg.coaches = DEFAULT_CONFIG.coaches.slice();
   if(!cfg.pricing || typeof cfg.pricing!=='object') cfg.pricing = {};
   cfg.ltypes.forEach(t=>{
     const cur = cfg.pricing[t.name];
@@ -656,7 +657,7 @@ function seedData(){
       phone:`010-${1000+~~(Math.random()*8999)}-${1000+~~(Math.random()*8999)}`,
       birth:`${2000+i%12}-${String((i%12)+1).padStart(2,'0')}-15`,
       ltype, cat, term, freq, group:cfg.groups[i%cfg.groups.length], pos:POS[i%POS.length],
-      coach:COACHES[i%COACHES.length], status:i%9===0?'휴강':i%14===0?'대기':'활성',
+      coach:cfg.coaches[i%cfg.coaches.length], status:i%9===0?'휴강':i%14===0?'대기':'활성',
       joinDate:jd.toISOString().slice(0,10),
       paid:i%3!==0, paidDate:i%3!==0?TODAY:null,
       notes:i%4===0?['드리블 특기','체력 우수','대회 출전 경력'][i%3]:''
@@ -678,7 +679,7 @@ function seedData(){
         evts.push({
           id:'e'+Date.now()+Math.random(), date:ds,
           title:ETITLES[ti], group:cfg.groups[~~(Math.random()*cfg.groups.length)],
-          coach:COACHES[~~(Math.random()*COACHES.length)],
+          coach:cfg.coaches[~~(Math.random()*cfg.coaches.length)],
           start:`${String(hr).padStart(2,'0')}:00`,
           end:`${String(hr+1).padStart(2,'0')}:30`,
           loc:['메인 구장','보조 구장','실내체육관','풋살장'][~~(Math.random()*4)],
@@ -1191,6 +1192,8 @@ function openSettings(){
       <span>📚 수강 목록 편집</span><span style="color:var(--txt3);font-weight:400">${cfg.ltypes.length}개 ›</span></button>
     <button class="btn btn-s" style="width:100%;justify-content:space-between;margin-bottom:9px" onclick="openGroupsEditor()">
       <span>🏷️ 수강반 편집</span><span style="color:var(--txt3);font-weight:400">${cfg.groups.length}개 ›</span></button>
+    <button class="btn btn-s" style="width:100%;justify-content:space-between;margin-bottom:9px" onclick="openCoachesEditor()">
+      <span>👤 코치 편집</span><span style="color:var(--txt3);font-weight:400">${cfg.coaches.length}명 ›</span></button>
     <button class="btn btn-g" style="width:100%;justify-content:space-between" onclick="openPriceEditor()">
       <span>💰 요금표 편집</span><span style="opacity:.8;font-weight:400">주횟수별 ›</span></button>
     <div class="f-actions" style="margin-top:16px">
@@ -1207,7 +1210,7 @@ function _tAdd(){ _tSync(); _et.push({name:'',membership:true}); renderTypesEdit
 function _tDel(i){ _tSync(); _et.splice(i,1); renderTypesEditor(); }
 function renderTypesEditor(){
   const rows=_et.map((t,i)=>`
-    <div class="frow" style="align-items:flex-end;gap:7px">
+    <div style="display:flex;align-items:flex-end;gap:7px;margin-bottom:12px">
       <div class="fg" style="flex:2"><label class="fl">수강 이름</label>
         <input class="fi" id="et_name_${i}" value="${h(t.name)}" placeholder="예: 개인레슨"></div>
       <div class="fg" style="flex:1.4"><label class="fl">결제 방식</label>
@@ -1248,7 +1251,7 @@ function _gAdd(){ _gSync(); _eg.push(''); renderGroupsEditor(); }
 function _gDel(i){ _gSync(); _eg.splice(i,1); renderGroupsEditor(); }
 function renderGroupsEditor(){
   const rows=_eg.map((g,i)=>`
-    <div class="frow" style="align-items:flex-end;gap:7px">
+    <div style="display:flex;align-items:flex-end;gap:7px;margin-bottom:12px">
       <div class="fg" style="flex:1"><label class="fl">반 이름</label>
         <input class="fi" id="eg_name_${i}" value="${h(g)}" placeholder="예: A반(월수)"></div>
       <button class="btn btn-d" style="flex:0 0 42px;padding:0;min-height:44px" onclick="_gDel(${i})">✕</button>
@@ -1269,6 +1272,38 @@ function saveGroups(){
   if(new Set(clean).size!==clean.length){ toast2('반 이름이 중복됩니다','err'); return; }
   cfg.groups=clean;
   persist(); toast2('수강반이 저장되었습니다'); openSettings();
+  renderPage();
+}
+
+/* 코치 편집 */
+let _ec=null;
+function openCoachesEditor(){ _ec=cfg.coaches.slice(); renderCoachesEditor(); }
+function _cSync(){ if(!_ec) return; _ec.forEach((c,i)=>{ const n=$('ec_name_'+i); if(n) _ec[i]=n.value; }); }
+function _cAdd(){ _cSync(); _ec.push(''); renderCoachesEditor(); }
+function _cDel(i){ _cSync(); _ec.splice(i,1); renderCoachesEditor(); }
+function renderCoachesEditor(){
+  const rows=_ec.map((c,i)=>`
+    <div style="display:flex;align-items:flex-end;gap:7px;margin-bottom:12px">
+      <div class="fg" style="flex:1"><label class="fl">코치 이름</label>
+        <input class="fi" id="ec_name_${i}" value="${h(c)}" placeholder="예: 김코치"></div>
+      <button class="btn btn-d" style="flex:0 0 42px;padding:0;min-height:44px" onclick="_cDel(${i})">✕</button>
+    </div>`).join('');
+  showSheet('코치 편집', `
+    ${rows||'<div style="color:var(--txt3);padding:8px 0;font-size:12px">코치가 없습니다. 아래에서 추가하세요.</div>'}
+    <button class="btn btn-s" style="width:100%;margin-top:4px" onclick="_cAdd()">+ 코치 추가</button>
+    <div class="f-actions" style="margin-top:14px">
+      <button class="btn btn-s" style="flex:1" onclick="openSettings()">‹ 뒤로</button>
+      <button class="btn btn-g" style="flex:2" onclick="saveCoaches()">저장</button>
+    </div>
+  `);
+}
+function saveCoaches(){
+  _cSync();
+  const clean=_ec.map(c=>(c||'').trim()).filter(Boolean);
+  if(!clean.length){ toast2('최소 1명의 코치가 필요합니다','err'); return; }
+  if(new Set(clean).size!==clean.length){ toast2('코치 이름이 중복됩니다','err'); return; }
+  cfg.coaches=clean;
+  persist(); toast2('코치가 저장되었습니다'); openSettings();
   renderPage();
 }
 
@@ -1395,7 +1430,7 @@ function openMemberForm(id){
     </div>
     <div class="frow">
       <div class="fg"><label class="fl">코치</label>
-        <select class="fi" id="fco">${COACHES.map(c=>`<option ${(m?.coach||COACHES[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
+        <select class="fi" id="fco">${cfg.coaches.map(c=>`<option ${(m?.coach||cfg.coaches[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">상태</label>
         <select class="fi" id="fst">${STATS.map(s=>`<option ${(m?.status||'활성')===s?'selected':''}>${s}</option>`).join('')}</select></div>
     </div>
@@ -1433,7 +1468,7 @@ function saveMember(id){
     ltype:$('fty')?.value||ltypeNames()[0],cat:$('fcat')?.value||'성인',
     freq:parseInt($('ffreq')?.value||'1')||1,term:$('fterm')?.value||'2',
     group:$('fg_')?.value||cfg.groups[0],
-    pos:$('fpos')?.value||'없음',coach:$('fco')?.value||COACHES[0],
+    pos:$('fpos')?.value||'없음',coach:$('fco')?.value||cfg.coaches[0],
     status:$('fst')?.value||'활성',joinDate:$('fjd')?.value||TODAY,
     notes:$('fno')?.value||''};
   if(id){
@@ -1478,7 +1513,7 @@ function openEvtForm(id){
     </div>
     <div class="frow">
       <div class="fg"><label class="fl">코치</label>
-        <select class="fi" id="eco">${COACHES.map(c=>`<option ${(e?.coach||COACHES[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
+        <select class="fi" id="eco">${cfg.coaches.map(c=>`<option ${(e?.coach||cfg.coaches[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">장소</label><input class="fi" id="el" value="${h(e?.loc||'메인 구장')}"></div>
     </div>
     <div class="fg"><label class="fl">색상</label>
@@ -1501,7 +1536,7 @@ function saveEvt(id){
   const title=($('et')?.value||'').trim();
   if(!title){toast2('제목을 입력하세요','err');return;}
   const data={title,date:$('ed')?.value||selDate,group:$('eg')?.value||cfg.groups[0],
-    coach:$('eco')?.value||COACHES[0],start:$('es')?.value||'10:00',
+    coach:$('eco')?.value||cfg.coaches[0],start:$('es')?.value||'10:00',
     end:$('ee')?.value||'11:30',loc:$('el')?.value||'',
     color:$('ecol')?.value||ECOLS[0],memo:$('em')?.value||''};
   if(id){const i=evts.findIndex(e=>e.id===id);if(i>-1)evts[i]={...evts[i],...data};}
