@@ -11,6 +11,7 @@ EZRA FOOTBALL CLUB 운영을 위한 모바일 우선 PWA. 회원 관리, 출석 
 - **비회원제** — 원포인트레슨, **1일(1회)** 결제
 - **월 단가 방식** — 회원제는 구분·주횟수별 **월 단가**를 입력하면 결제금액 = 월단가 × 개월수(2·3달치)로 자동 계산
 - **성인·유소년 통합/분리** — 수강별로 성인·유소년을 하나의 요금으로 **통합**하거나 각각 **분리**해서 설정
+- **할인율** — **결제 개월별 할인**(요금표에서 2·3달치 %)과 **회원별 할인**(등록·수정 시 %)을 함께 적용(합산)
 - **전부 편집 가능** — 수업료 화면의 **⚙️ 설정**에서 **수강 목록·수강반·코치·요금**을 자유롭게
   추가/수정/삭제 (변경 즉시 회원 등록·수업료에 반영되고 Firebase로 동기화)
 
@@ -154,6 +155,7 @@ lesson schedules, and tuition from a single screen. It runs from one
 - **Non-membership** — one-point lesson, paid **per day (single session)**
 - **Monthly-unit pricing** — enter a **monthly rate** per category/frequency; the charge is rate × months (2 or 3), computed automatically
 - **Unified or split adult/youth** — each lesson can share one price for adult & youth (**unified**) or set them **separately**
+- **Discounts** — **term discounts** (per 2/3-month %, in the price editor) and **per-member discounts** (% at registration), applied together (additive)
 - **Fully editable** — under **⚙️ Settings** on the Tuition screen, freely add / edit / delete
   the **lesson list, classes, coaches, and prices** (changes apply instantly and sync via Firebase)
 
