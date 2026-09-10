@@ -608,8 +608,10 @@ function ltypeObj(name){ return cfg.ltypes.find(t=>t.name===name); }
 function isMembership(name){ const t=ltypeObj(name); return t?!!t.membership:false; }
 function ltColor(name){ const i=cfg.ltypes.findIndex(t=>t.name===name); return LTC_PAL[(i<0?0:i)%LTC_PAL.length]; }
 function blankFreq(){ return {f1:0,f2:0,f3:0,f4:0,f5:0}; }
+function fillFreq(o){ const r={}; FREQS.forEach(f=>{ r['f'+f]=(o&&typeof o['f'+f]==='number')?o['f'+f]:0; }); return r; }
 
 // 설정 구조 보정 — 누락/구버전 데이터도 안전하게 채웁니다.
+// 회원제 유형은 unified(성인·유소년 통합)이면 {all}, 아니면 {성인,유소년} 구조를 가집니다.
 function normalizeCfg(){
   if(!cfg || typeof cfg!=='object') cfg = clone(DEFAULT_CONFIG);
   if(!Array.isArray(cfg.ltypes) || !cfg.ltypes.length) cfg.ltypes = clone(DEFAULT_CONFIG.ltypes);
@@ -617,13 +619,17 @@ function normalizeCfg(){
   if(!Array.isArray(cfg.coaches) || !cfg.coaches.length) cfg.coaches = DEFAULT_CONFIG.coaches.slice();
   if(!cfg.pricing || typeof cfg.pricing!=='object') cfg.pricing = {};
   cfg.ltypes.forEach(t=>{
-    const cur = cfg.pricing[t.name];
+    const cur = cfg.pricing[t.name] || {};
     if(t.membership){
-      const ok = cur && cur.성인 && ('f1' in cur.성인);
-      if(!ok) cfg.pricing[t.name] = {성인:blankFreq(),유소년:blankFreq()};
-      else CATS.forEach(c=>{ if(!cur[c]) cur[c]=blankFreq(); FREQS.forEach(f=>{ if(typeof cur[c]['f'+f]!=='number') cur[c]['f'+f]=0; }); });
+      if(t.unified){
+        const base = (cur.all && 'f1' in cur.all) ? cur.all : (cur.성인 || cur.유소년);
+        cfg.pricing[t.name] = { all: fillFreq(base) };
+      } else {
+        const base = (cur.성인 && 'f1' in cur.성인) ? cur.성인 : cur.all;
+        cfg.pricing[t.name] = { 성인: fillFreq(cur.성인 || base), 유소년: fillFreq(cur.유소년 || base) };
+      }
     } else {
-      if(!cur || typeof cur.once!=='number') cfg.pricing[t.name] = {once:(cur&&cur.once)||0};
+      if(typeof cur.once!=='number') cfg.pricing[t.name] = {once:(cur.once)||0};
     }
   });
 }
@@ -632,7 +638,8 @@ function normalizeCfg(){
 function memberFee(m){
   const p = cfg.pricing[m.ltype]; if(!p) return 0;
   if(!isMembership(m.ltype)) return p.once||0;
-  const byCat = p[m.cat] || p['성인'] || {};
+  const t = ltypeObj(m.ltype);
+  const byCat = (t && t.unified) ? (p.all||{}) : (p[m.cat] || p['성인'] || {});
   const monthly = byCat['f'+(m.freq||1)] || 0;
   return monthly * (m.term==='3'?3:2);
 }
@@ -1307,30 +1314,75 @@ function saveCoaches(){
   renderPage();
 }
 
-/* 요금표 편집 — 회원제: 구분×주횟수 월 단가 / 비회원제: 1회 요금 */
+/* 요금표 편집 — 회원제: 구분×주횟수 월 단가(성인·유소년 통합/분리 선택) / 비회원제: 1회 요금 */
+let _pw=null;                 // 작업용 요금 { [name]: {통합? {all}:{성인,유소년}} 또는 {once} }
+let _pu=null;                 // 작업용 통합 플래그 { [name]: bool }
 function openPriceEditor(){
-  const sections=cfg.ltypes.map((t,ti)=>{
-    if(t.membership){
-      const p=cfg.pricing[t.name]||{};
-      const catBlock=cat=>`
-        <div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">${cat}</div>
-        ${[0,1,2].map(r=>`<div class="frow" style="gap:7px">${FREQS.slice(r*2,r*2+2).map(f=>`
-          <div class="fg"><label class="fl">주${f}회</label>
-            <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_${CATK[cat]}_${f}" value="${(p[cat]&&p[cat]['f'+f])||0}"></div>`).join('')}</div>`).join('')}`;
-      return `<div style="font-size:13px;font-weight:700;color:${ltColor(t.name)};margin:16px 0 4px">${h(t.name)}
-        <span style="color:var(--txt3);font-weight:400;font-size:10px">· 회원제 · 월 단가(원)</span></div>
-        ${CATS.map(catBlock).join('')}`;
+  _pw = clone(cfg.pricing);
+  _pu = {}; cfg.ltypes.forEach(t=>{ if(t.membership) _pu[t.name]=!!t.unified; });
+  renderPriceEditor();
+}
+// 화면 입력값을 작업 상태(_pw)로 회수 (재렌더/토글 전 호출)
+function _pSync(){
+  cfg.ltypes.forEach((t,ti)=>{
+    if(!t.membership){ _pw[t.name]={once:readInt('po_'+ti)}; return; }
+    if(_pu[t.name]){
+      const all=blankFreq(); FREQS.forEach(f=>{ all['f'+f]=readInt(`pm_${ti}_all_${f}`); });
+      _pw[t.name]={all};
     } else {
-      const once=(cfg.pricing[t.name]&&cfg.pricing[t.name].once)||0;
+      const o={}; CATS.forEach(cat=>{ o[cat]=blankFreq(); FREQS.forEach(f=>{ o[cat]['f'+f]=readInt(`pm_${ti}_${CATK[cat]}_${f}`); }); });
+      _pw[t.name]=o;
+    }
+  });
+}
+function _pToggleUnified(ti,val){
+  _pSync();
+  const t=cfg.ltypes[ti], name=t.name, uni=(val==='통합');
+  const cur=_pw[name]||{};
+  if(uni){
+    _pw[name]={ all: fillFreq(cur.all || cur.성인 || cur.유소년) };
+  } else {
+    const base=cur.all || cur.성인;
+    _pw[name]={ 성인: fillFreq(cur.성인 || base), 유소년: fillFreq(cur.유소년 || base) };
+  }
+  _pu[name]=uni;
+  renderPriceEditor();
+}
+function freqInputs(ti,catKey,src){
+  return [0,1,2].map(r=>`<div style="display:flex;gap:7px;margin-bottom:12px">${FREQS.slice(r*2,r*2+2).map(f=>`
+    <div class="fg" style="flex:1;margin:0"><label class="fl">주${f}회</label>
+      <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_${catKey}_${f}" value="${(src&&src['f'+f])||0}"></div>`).join('')||''}
+    ${r===2?'<div style="flex:1"></div>':''}</div>`).join('');
+}
+function renderPriceEditor(){
+  const sections=cfg.ltypes.map((t,ti)=>{
+    if(!t.membership){
+      const once=(_pw[t.name]&&_pw[t.name].once)||0;
       return `<div style="font-size:13px;font-weight:700;color:${ltColor(t.name)};margin:16px 0 6px">${h(t.name)}
         <span style="color:var(--txt3);font-weight:400;font-size:10px">· 비회원제 · 1회(원)</span></div>
         <div class="fg"><label class="fl">1회 요금</label>
           <input class="fi" type="number" inputmode="numeric" id="po_${ti}" value="${once}"></div>`;
     }
+    const uni=_pu[t.name];
+    const p=_pw[t.name]||{};
+    const toggle=`
+      <select class="fi" style="width:auto;padding:6px 26px 6px 10px;font-size:11px;font-weight:700" onchange="_pToggleUnified(${ti}, this.value)">
+        <option ${!uni?'selected':''}>분리</option>
+        <option ${uni?'selected':''}>통합</option>
+      </select>`;
+    const body = uni
+      ? `<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">성인·유소년 공통</div>${freqInputs(ti,'all',p.all)}`
+      : CATS.map(cat=>`<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">${cat}</div>${freqInputs(ti,CATK[cat],p[cat])}`).join('');
+    return `<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 4px;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:${ltColor(t.name)}">${h(t.name)}
+          <span style="color:var(--txt3);font-weight:400;font-size:10px">· 회원제 · 월 단가(원)</span></div>
+        ${toggle}
+      </div>${body}`;
   }).join('');
   showSheet('요금표 편집', `
     <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:2px">
       회원제는 <b style="color:var(--txt)">월 단가</b>를 입력하면 결제금액 = 월단가 × 개월수(2·3달치)로 자동 계산됩니다.
+      각 수강은 <b style="color:var(--txt)">성인·유소년 통합/분리</b>를 선택할 수 있습니다.
     </div>
     ${sections}
     <div class="f-actions" style="margin-top:18px">
@@ -1340,14 +1392,10 @@ function openPriceEditor(){
   `);
 }
 function savePrice(){
-  cfg.ltypes.forEach((t,ti)=>{
-    if(t.membership){
-      const obj={}; CATS.forEach(cat=>{ obj[cat]={}; FREQS.forEach(f=>{ obj[cat]['f'+f]=readInt(`pm_${ti}_${CATK[cat]}_${f}`); }); });
-      cfg.pricing[t.name]=obj;
-    } else {
-      cfg.pricing[t.name]={once:readInt('po_'+ti)};
-    }
-  });
+  _pSync();
+  cfg.ltypes.forEach(t=>{ if(t.membership) t.unified=!!_pu[t.name]; });
+  cfg.pricing=_pw;
+  normalizeCfg();
   persist(); closeSheet(); renderPage(); toast2('요금표가 저장되었습니다');
 }
 
