@@ -563,6 +563,7 @@ const CATS    = ['성인','유소년'];       // 구분
 const CATK    = {'성인':'ad','유소년':'yo'};
 const TERMS   = ['2','3'];              // 회원제 결제 개월 (2달치 / 3달치)
 const FREQS   = [1,2,3,4,5];            // 주 N회
+const WEEKS_PER_MONTH = 4;              // 1달 = 4주 (총 횟수 산정 기준)
 const POS     = ['FW','MF','DF','GK','없음'];
 const STATS   = ['활성','휴강','대기'];
 const STC     = {활성:'#22c55e',휴강:'#f97316',대기:'#6b7280'};
@@ -572,8 +573,8 @@ const ETITLES = ['정규 레슨','개인 레슨','그룹 레슨','전술 훈련'
 const TODAY   = new Date().toISOString().slice(0,10);
 
 // 기본 설정 — 수강 목록/반/요금 모두 앱의 "설정"에서 편집 가능하며 Firebase로 동기화됩니다.
-// 회원제 요금은 성인/유소년 × 주횟수(f1~f5)의 "월 단가"이고, 결제금액 = 월단가 × 개월수(2 또는 3).
-// 비회원제(원포인트)는 단일 1회(once) 요금.
+// 회원제 요금은 성인/유소년별 "1일(1회) 단가"이고,
+// 결제금액 = 1일단가 × 주횟수 × 4주 × 개월수(2 또는 3). 비회원제(원포인트)는 단일 1회(once) 요금.
 const DEFAULT_CONFIG = {
   ltypes: [
     { name:'개인레슨',   membership:true  },
@@ -584,8 +585,8 @@ const DEFAULT_CONFIG = {
   coaches: ['김코치','박코치','이코치'],
   termDiscount: { '2':0, '3':0 },   // 결제 개월별 할인율(%) — 회원제 공통
   pricing: {
-    '개인레슨':   { 성인:{f1:150000,f2:280000,f3:390000,f4:480000,f5:550000}, 유소년:{f1:130000,f2:240000,f3:330000,f4:400000,f5:460000} },
-    '그룹레슨':   { 성인:{f1:90000, f2:160000,f3:210000,f4:250000,f5:280000}, 유소년:{f1:80000, f2:140000,f3:180000,f4:210000,f5:240000} },
+    '개인레슨':   { 성인:50000, 유소년:45000 },   // 1일 단가
+    '그룹레슨':   { 성인:25000, 유소년:20000 },
     '원포인트레슨':{ once:50000 }
   }
 };
@@ -608,11 +609,15 @@ function ltypeNames(){ return cfg.ltypes.map(t=>t.name); }
 function ltypeObj(name){ return cfg.ltypes.find(t=>t.name===name); }
 function isMembership(name){ const t=ltypeObj(name); return t?!!t.membership:false; }
 function ltColor(name){ const i=cfg.ltypes.findIndex(t=>t.name===name); return LTC_PAL[(i<0?0:i)%LTC_PAL.length]; }
-function blankFreq(){ return {f1:0,f2:0,f3:0,f4:0,f5:0}; }
-function fillFreq(o){ const r={}; FREQS.forEach(f=>{ r['f'+f]=(o&&typeof o['f'+f]==='number')?o['f'+f]:0; }); return r; }
+// 요금 값을 1일 단가(숫자)로 변환. 구버전 월단가 객체({f1..})는 주1회 월단가÷4주로 근사.
+function dailyFrom(v){
+  if(typeof v==='number') return v;
+  if(v && typeof v==='object' && typeof v.f1==='number') return Math.round(v.f1/WEEKS_PER_MONTH);
+  return 0;
+}
 
 // 설정 구조 보정 — 누락/구버전 데이터도 안전하게 채웁니다.
-// 회원제 유형은 unified(성인·유소년 통합)이면 {all}, 아니면 {성인,유소년} 구조를 가집니다.
+// 회원제 유형은 unified(성인·유소년 통합)이면 {all:1일단가}, 아니면 {성인,유소년:1일단가} 구조.
 function normalizeCfg(){
   if(!cfg || typeof cfg!=='object') cfg = clone(DEFAULT_CONFIG);
   if(!Array.isArray(cfg.ltypes) || !cfg.ltypes.length) cfg.ltypes = clone(DEFAULT_CONFIG.ltypes);
@@ -625,11 +630,9 @@ function normalizeCfg(){
     const cur = cfg.pricing[t.name] || {};
     if(t.membership){
       if(t.unified){
-        const base = (cur.all && 'f1' in cur.all) ? cur.all : (cur.성인 || cur.유소년);
-        cfg.pricing[t.name] = { all: fillFreq(base) };
+        cfg.pricing[t.name] = { all: dailyFrom(cur.all!=null?cur.all:(cur.성인!=null?cur.성인:cur.유소년)) };
       } else {
-        const base = (cur.성인 && 'f1' in cur.성인) ? cur.성인 : cur.all;
-        cfg.pricing[t.name] = { 성인: fillFreq(cur.성인 || base), 유소년: fillFreq(cur.유소년 || base) };
+        cfg.pricing[t.name] = { 성인: dailyFrom(cur.성인!=null?cur.성인:cur.all), 유소년: dailyFrom(cur.유소년!=null?cur.유소년:cur.all) };
       }
     } else {
       if(typeof cur.once!=='number') cfg.pricing[t.name] = {once:(cur.once)||0};
@@ -637,14 +640,14 @@ function normalizeCfg(){
   });
 }
 
-// 할인 전 기본 금액(원). 회원제 = 월단가(구분·주횟수) × 개월수, 원포인트 = 단일 요금.
+// 할인 전 기본 금액(원). 회원제 = 1일단가 × 주횟수 × 4주 × 개월수, 원포인트 = 단일 요금.
 function baseFee(m){
   const p = cfg.pricing[m.ltype]; if(!p) return 0;
-  if(!isMembership(m.ltype)) return p.once||0;
+  if(!isMembership(m.ltype)) return Number(p.once)||0;
   const t = ltypeObj(m.ltype);
-  const byCat = (t && t.unified) ? (p.all||{}) : (p[m.cat] || p['성인'] || {});
-  const monthly = byCat['f'+(m.freq||1)] || 0;
-  return monthly * (m.term==='3'?3:2);
+  const daily = (t && t.unified) ? (Number(p.all)||0) : (Number(p[m.cat]!=null ? p[m.cat] : p['성인'])||0);
+  const sessions = (m.freq||1) * WEEKS_PER_MONTH * (m.term==='3'?3:2);
+  return daily * sessions;
 }
 // 총 할인율(%) = 결제개월 할인(회원제) + 회원별 할인, 0~100 제한.
 function discPct(m){
@@ -1325,7 +1328,7 @@ function saveCoaches(){
   renderPage();
 }
 
-/* 요금표 편집 — 회원제: 구분×주횟수 월 단가(성인·유소년 통합/분리 선택) / 비회원제: 1회 요금 */
+/* 요금표 편집 — 회원제: 구분별 1일 단가(성인·유소년 통합/분리 선택) / 비회원제: 1회 요금 */
 let _pw=null;                 // 작업용 요금 { [name]: {통합? {all}:{성인,유소년}} 또는 {once} }
 let _pu=null;                 // 작업용 통합 플래그 { [name]: bool }
 let _pd=null;                 // 작업용 결제개월 할인율 { '2':n, '3':n }
@@ -1341,33 +1344,17 @@ function _pSync(){
   TERMS.forEach(t=>{ const v=$('td_'+t); if(v) _pd[t]=readPct('td_'+t); });
   cfg.ltypes.forEach((t,ti)=>{
     if(!t.membership){ _pw[t.name]={once:readInt('po_'+ti)}; return; }
-    if(_pu[t.name]){
-      const all=blankFreq(); FREQS.forEach(f=>{ all['f'+f]=readInt(`pm_${ti}_all_${f}`); });
-      _pw[t.name]={all};
-    } else {
-      const o={}; CATS.forEach(cat=>{ o[cat]=blankFreq(); FREQS.forEach(f=>{ o[cat]['f'+f]=readInt(`pm_${ti}_${CATK[cat]}_${f}`); }); });
-      _pw[t.name]=o;
-    }
+    if(_pu[t.name]) _pw[t.name]={ all: readInt(`pm_${ti}_all`) };
+    else            _pw[t.name]={ 성인: readInt(`pm_${ti}_ad`), 유소년: readInt(`pm_${ti}_yo`) };
   });
 }
 function _pToggleUnified(ti,val){
   _pSync();
-  const t=cfg.ltypes[ti], name=t.name, uni=(val==='통합');
-  const cur=_pw[name]||{};
-  if(uni){
-    _pw[name]={ all: fillFreq(cur.all || cur.성인 || cur.유소년) };
-  } else {
-    const base=cur.all || cur.성인;
-    _pw[name]={ 성인: fillFreq(cur.성인 || base), 유소년: fillFreq(cur.유소년 || base) };
-  }
+  const name=cfg.ltypes[ti].name, uni=(val==='통합'), cur=_pw[name]||{};
+  if(uni) _pw[name]={ all: (cur.all!=null?cur.all:(cur.성인!=null?cur.성인:cur.유소년))||0 };
+  else    _pw[name]={ 성인:(cur.성인!=null?cur.성인:cur.all)||0, 유소년:(cur.유소년!=null?cur.유소년:cur.all)||0 };
   _pu[name]=uni;
   renderPriceEditor();
-}
-function freqInputs(ti,catKey,src){
-  return [0,1,2].map(r=>`<div style="display:flex;gap:7px;margin-bottom:12px">${FREQS.slice(r*2,r*2+2).map(f=>`
-    <div class="fg" style="flex:1;margin:0"><label class="fl">주${f}회</label>
-      <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_${catKey}_${f}" value="${(src&&src['f'+f])||0}"></div>`).join('')||''}
-    ${r===2?'<div style="flex:1"></div>':''}</div>`).join('');
 }
 function renderPriceEditor(){
   const sections=cfg.ltypes.map((t,ti)=>{
@@ -1386,17 +1373,24 @@ function renderPriceEditor(){
         <option ${uni?'selected':''}>통합</option>
       </select>`;
     const body = uni
-      ? `<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">성인·유소년 공통</div>${freqInputs(ti,'all',p.all)}`
-      : CATS.map(cat=>`<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">${cat}</div>${freqInputs(ti,CATK[cat],p[cat])}`).join('');
+      ? `<div class="fg"><label class="fl">성인·유소년 공통 · 1일 단가</label>
+           <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_all" value="${p.all||0}"></div>`
+      : `<div style="display:flex;gap:7px">
+           <div class="fg" style="flex:1;margin:0"><label class="fl">성인 · 1일 단가</label>
+             <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_ad" value="${p.성인||0}"></div>
+           <div class="fg" style="flex:1;margin:0"><label class="fl">유소년 · 1일 단가</label>
+             <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_yo" value="${p.유소년||0}"></div>
+         </div>`;
     return `<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 4px;gap:8px">
         <div style="font-size:13px;font-weight:700;color:${ltColor(t.name)}">${h(t.name)}
-          <span style="color:var(--txt3);font-weight:400;font-size:10px">· 회원제 · 월 단가(원)</span></div>
+          <span style="color:var(--txt3);font-weight:400;font-size:10px">· 회원제 · 1일 단가(원)</span></div>
         ${toggle}
       </div>${body}`;
   }).join('');
   showSheet('요금표 편집', `
     <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:2px">
-      회원제는 <b style="color:var(--txt)">월 단가</b>를 입력하면 결제금액 = 월단가 × 개월수(2·3달치)로 자동 계산됩니다.
+      회원제는 <b style="color:var(--txt)">1일 단가</b>를 입력하면 결제금액 =
+      1일단가 × 주횟수 × 4주 × 개월수(2·3달치)로 자동 계산됩니다.
       각 수강은 <b style="color:var(--txt)">성인·유소년 통합/분리</b>를 선택할 수 있습니다.
     </div>
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:11px 12px;margin-top:12px">
