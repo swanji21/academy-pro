@@ -329,23 +329,36 @@ body{
   padding:12px 16px;border-bottom:1px solid var(--bdr);
 }
 .cal-month-lbl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:8px 10px 4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:8px 8px 6px}
 .cal-wday{text-align:center;font-size:9px;color:var(--txt3);padding:5px 0;font-weight:700;letter-spacing:.5px}
 .cal-day{
-  aspect-ratio:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;border-radius:8px;cursor:pointer;
+  min-height:58px;display:flex;flex-direction:column;align-items:stretch;
+  justify-content:flex-start;border-radius:7px;cursor:pointer;
   -webkit-tap-highlight-color:transparent;
   transition:background .1s;
-  padding:2px;
+  padding:3px 2px;overflow:hidden;
 }
 .cal-day:active{background:var(--surf2)}
 .cal-day.is-today{background:rgba(34,197,94,.08)}
-.cal-day.is-sel{background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.35)}
-.cal-dn{font-size:11px;font-weight:500;line-height:1;margin-bottom:2px}
+.cal-day.is-sel{background:rgba(34,197,94,.16);box-shadow:inset 0 0 0 1px rgba(34,197,94,.35)}
+.cal-dn{font-size:11px;font-weight:500;line-height:1;margin-bottom:2px;text-align:center;flex-shrink:0}
 .cal-day.is-today .cal-dn{color:var(--grn);font-weight:700}
 .cal-day.is-sel .cal-dn{color:var(--grn)}
-.cal-dots{display:flex;gap:2px;justify-content:center;flex-wrap:wrap;max-width:22px}
-.cal-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+/* 달력 칸 안의 레슨 칩 */
+.cal-ev{
+  font-size:8px;line-height:1.25;font-weight:600;color:#fff;
+  padding:1px 3px;border-radius:3px;margin-bottom:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;
+}
+.cal-more{font-size:8px;color:var(--txt3);text-align:center;font-weight:700}
+/* 달력 아래 날짜별 헤더 */
+.agenda-day{
+  display:flex;align-items:center;gap:8px;margin:14px 0 8px;
+}
+.agenda-date{font-size:13px;font-weight:700;color:var(--txt)}
+.agenda-date.today{color:var(--grn)}
+.agenda-cnt{font-size:11px;color:var(--txt3)}
+.agenda-line{flex:1;height:1px;background:var(--bdr)}
 
 /* ── Event card ── */
 .ev-card{
@@ -1108,10 +1121,13 @@ function markAll(s){
 }
 
 /* ─── Schedule ───────────────────────────────────────────────────────────────── */
+const WDAY=['일','월','화','수','목','금','토'];
 function vSched(){
   const ms=`${calY}-${String(calM+1).padStart(2,'0')}`;
-  const mEvts=evts.filter(e=>e.date.startsWith(ms));
-  const dEvts=evts.filter(e=>e.date===selDate).sort((a,b)=>a.start.localeCompare(b.start));
+  const mEvts=evts.filter(e=>e.date.startsWith(ms)).sort((a,b)=>a.date===b.date?a.start.localeCompare(b.start):a.date.localeCompare(b.date));
+  // 날짜별로 묶기
+  const byDate={}; mEvts.forEach(e=>{ (byDate[e.date]=byDate[e.date]||[]).push(e); });
+  const dates=Object.keys(byDate).sort();
   return`
 <div class="card" style="margin:14px 16px 12px">
   <div class="cal-nav">
@@ -1120,40 +1136,54 @@ function vSched(){
     <button class="btn btn-s btn-sm" onclick="nextM()" style="min-width:40px">›</button>
   </div>
   <div class="cal-grid">
-    ${['일','월','화','수','목','금','토'].map(d=>`<div class="cal-wday">${d}</div>`).join('')}
+    ${WDAY.map((d,i)=>`<div class="cal-wday" style="${i===0?'color:#ef6b6b':i===6?'color:#5b9bff':''}">${d}</div>`).join('')}
     ${Array.from({length:FDY(calY,calM)},()=>`<div></div>`).join('')}
     ${Array.from({length:DIM(calY,calM)},(_,i)=>{
       const d=i+1;
       const ds=`${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const de=mEvts.filter(e=>e.date===ds);
+      const de=byDate[ds]||[];
       return`<div class="cal-day ${ds===TODAY?'is-today':''} ${ds===selDate?'is-sel':''}" onclick="selDate='${ds}';renderPage()">
         <div class="cal-dn">${d}</div>
-        <div class="cal-dots">${de.slice(0,3).map(e=>`<div class="cal-dot" style="background:${e.color}"></div>`).join('')}</div>
+        ${de.slice(0,3).map(e=>`<div class="cal-ev" style="background:${e.color}" onclick="event.stopPropagation();openEvtForm('${e.id}')" title="${h(e.start)} ${h(e.title)}">${h(e.start.slice(0,5))} ${h(e.title)}</div>`).join('')}
+        ${de.length>3?`<div class="cal-more">+${de.length-3}</div>`:''}
       </div>`;
     }).join('')}
   </div>
 </div>
 <div class="sec" style="padding-top:0">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-    <div style="font-size:13px;color:var(--txt2)">${selDate} <span style="color:var(--grn)">(${dEvts.length}건)</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+    <div class="sec-title" style="margin:0">이 달 전체 일정 <span style="font-size:11px;color:var(--txt3);font-weight:400">(${mEvts.length}건)</span></div>
+    <button class="btn btn-s btn-xs" onclick="goToday()">오늘</button>
   </div>
-  ${!dEvts.length?`<div class="empty" style="padding:28px 0"><div class="empty-ico">📅</div><div class="empty-txt">일정 없음</div></div>`:
-    dEvts.map(e=>`
-      <div class="ev-card" style="border-left-color:${e.color}">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-          <div style="min-width:0">
-            <div style="font-weight:700;font-size:14px;margin-bottom:3px">${h(e.title)}</div>
-            <div style="font-size:12px;color:var(--txt3)">${e.start}–${e.end} · ${h(e.group)}</div>
-            <div style="font-size:11px;color:var(--txt3);margin-top:2px">${e.coach} · ${h(e.loc)}</div>
+  ${!dates.length?`<div class="empty" style="padding:34px 0"><div class="empty-ico">📅</div><div class="empty-txt">이 달 일정이 없습니다</div></div>`:
+    dates.map(ds=>{
+      const [y,m,dd]=ds.split('-').map(Number);
+      const wd=WDAY[new Date(y,m-1,dd).getDay()];
+      const de=byDate[ds];
+      return`
+      <div class="agenda-day">
+        <div class="agenda-date ${ds===TODAY?'today':''}">${m}/${dd} <span style="font-weight:400;color:var(--txt2)">(${wd})</span></div>
+        <div class="agenda-cnt">${de.length}건</div>
+        <div class="agenda-line"></div>
+      </div>
+      ${de.map(e=>`
+        <div class="ev-card" style="border-left-color:${e.color}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="min-width:0">
+              <div style="font-weight:700;font-size:14px;margin-bottom:3px">${h(e.title)}</div>
+              <div style="font-size:12px;color:var(--txt2)">🕐 ${h(e.start)}–${h(e.end)} · ${h(e.group)}</div>
+              <div style="font-size:11px;color:var(--txt3);margin-top:2px">${h(e.coach)} · 📍 ${h(e.loc)}${e.memo?' · '+h(e.memo):''}</div>
+            </div>
+            <div style="display:flex;gap:5px;flex-shrink:0">
+              <button class="btn btn-s btn-xs" onclick="openEvtForm('${e.id}')">수정</button>
+              <button class="btn btn-d btn-xs" onclick="delEvt('${e.id}')">삭제</button>
+            </div>
           </div>
-          <div style="display:flex;gap:5px;flex-shrink:0">
-            <button class="btn btn-s btn-xs" onclick="openEvtForm('${e.id}')">수정</button>
-            <button class="btn btn-d btn-xs" onclick="delEvt('${e.id}')">삭제</button>
-          </div>
-        </div>
-      </div>`).join('')}
+        </div>`).join('')}`;
+    }).join('')}
 </div>`;
 }
+function goToday(){ const t=new Date(); calY=t.getFullYear(); calM=t.getMonth(); selDate=TODAY; renderPage(); }
 function prevM(){if(calM===0){calY--;calM=11;}else calM--;renderPage();}
 function nextM(){if(calM===11){calY++;calM=0;}else calM++;renderPage();}
 function delEvt(id){evts=evts.filter(e=>e.id!==id);persist();renderPage();toast2('삭제되었습니다','err');}
