@@ -360,6 +360,22 @@ body{
 .agenda-cnt{font-size:11px;color:var(--txt3)}
 .agenda-line{flex:1;height:1px;background:var(--bdr)}
 
+/* ── Event color swatches ── */
+.evc-wrap{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:4px 0}
+.evc-sw{
+  width:30px;height:30px;border-radius:50%;border:2px solid transparent;
+  cursor:pointer;padding:0;flex-shrink:0;position:relative;
+  -webkit-tap-highlight-color:transparent;transition:transform .12s;
+}
+.evc-sw.on{border-color:#fff;transform:scale(1.12);box-shadow:0 0 0 2px var(--bg)}
+.evc-sw.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.evc-custom{
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  background:conic-gradient(#ef4444,#f97316,#eab308,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444);
+  border:2px solid var(--bdr2);font-size:13px;
+}
+.evc-custom.on{border-color:#fff}
+
 /* ── Event card ── */
 .ev-card{
   background:var(--surf);border:1px solid var(--bdr);border-radius:10px;
@@ -1605,8 +1621,12 @@ function togglePaid(id){
 function openEvtForm(id){
   const e=id?evts.find(x=>x.id===id):null;
   showSheet(e?'일정 수정':'일정 추가',`
-    <div class="fg"><label class="fl">제목 *</label>
-      <input class="fi" id="et" value="${h(e?.title||'정규 레슨')}" placeholder="제목"></div>
+    <div class="fg"><label class="fl">제목 * <span style="color:var(--txt3);font-weight:400">(직접 입력 가능)</span></label>
+      <input class="fi" id="et" value="${h(e?.title||'정규 레슨')}" placeholder="레슨 제목 입력" autocomplete="off">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
+        ${ETITLES.map(t=>`<span class="chip" onclick="document.getElementById('et').value='${t}';document.getElementById('et').focus()">${h(t)}</span>`).join('')}
+      </div>
+    </div>
     <div class="frow">
       <div class="fg"><label class="fl">날짜</label><input class="fi" type="date" id="ed" value="${e?.date||selDate}"></div>
       <div class="fg"><label class="fl">반</label>
@@ -1621,10 +1641,12 @@ function openEvtForm(id){
         <select class="fi" id="eco">${cfg.coaches.map(c=>`<option ${(e?.coach||cfg.coaches[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">장소</label><input class="fi" id="el" value="${h(e?.loc||'메인 구장')}"></div>
     </div>
-    <div class="fg"><label class="fl">색상</label>
-      <div style="display:flex;gap:10px;align-items:center;padding:4px 0">
-        ${ECOLS.map(c=>`<div onclick="this.parentElement.querySelectorAll('.cdot').forEach(d=>{d.style.transform='scale(1)';d.style.opacity='.5'});this.style.transform='scale(1.3)';this.style.opacity='1';document.getElementById('ecol').value='${c}'"
-          class="cdot" style="width:26px;height:26px;border-radius:50%;background:${c};cursor:pointer;flex-shrink:0;transition:all .15s;transform:${(e?.color||ECOLS[0])===c?'scale(1.3)':'scale(1)'};opacity:${(e?.color||ECOLS[0])===c?'1':'.5'}"></div>`).join('')}
+    <div class="fg"><label class="fl">레슨 색상 <span style="color:var(--txt3);font-weight:400">(맨 끝 🎨 = 원하는 색 직접 선택)</span></label>
+      <div class="evc-wrap">
+        ${ECOLS.map(c=>`<button type="button" class="evc-sw ${(e?.color||ECOLS[0])===c?'on':''}" data-c="${c}" style="background:${c}" onclick="pickEvColor('${c}')"></button>`).join('')}
+        <label class="evc-sw evc-custom ${ECOLS.indexOf(e?.color||ECOLS[0])<0?'on':''}" title="직접 선택">🎨
+          <input type="color" id="ecolCustom" value="${e?.color||ECOLS[0]}" oninput="pickEvColor(this.value)" style="position:absolute;inset:0;opacity:0;cursor:pointer">
+        </label>
         <input type="hidden" id="ecol" value="${e?.color||ECOLS[0]}">
       </div>
     </div>
@@ -1635,6 +1657,17 @@ function openEvtForm(id){
       <button class="btn btn-g" style="flex:2" onclick="saveEvt('${e?.id||''}')">저장</button>
     </div>
   `);
+}
+
+// 일정 색상 선택 — 프리셋/커스텀 공통. 선택 상태 표시 + 숨은 값 갱신.
+function pickEvColor(c){
+  if($('ecol')) $('ecol').value=c;
+  const isPreset=ECOLS.indexOf(c)>=0;
+  document.querySelectorAll('.evc-sw').forEach(s=>{
+    if(s.classList.contains('evc-custom')) s.classList.toggle('on', !isPreset);
+    else s.classList.toggle('on', s.dataset.c===c);
+  });
+  const cust=$('ecolCustom'); if(cust && !isPreset) cust.value=c;
 }
 
 function saveEvt(id){
