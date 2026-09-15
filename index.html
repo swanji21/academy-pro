@@ -376,6 +376,13 @@ body{
 }
 .evc-custom.on{border-color:#fff}
 
+/* ── Recruitment status badge ── */
+.rec-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+  line-height:1.4;white-space:nowrap;
+}
+
 /* ── Event card ── */
 .ev-card{
   background:var(--surf);border:1px solid var(--bdr);border-radius:10px;
@@ -726,6 +733,9 @@ function seedData(){
       for(let j=0;j<cnt;j++){
         const ti=~~(Math.random()*ETITLES.length);
         const hr=[9,11,14,16,18][~~(Math.random()*5)];
+        // 그룹 레슨은 최소 인원(모집) 설정, 그 외는 모집 관리 없음
+        const isGrp=ETITLES[ti]==='그룹 레슨';
+        const min=isGrp?4:0, cap=isGrp?8:0, enrolled=isGrp?2+~~(Math.random()*6):0;
         evts.push({
           id:'e'+Date.now()+Math.random(), date:ds,
           title:ETITLES[ti], group:cfg.groups[~~(Math.random()*cfg.groups.length)],
@@ -733,7 +743,7 @@ function seedData(){
           start:`${String(hr).padStart(2,'0')}:00`,
           end:`${String(hr+1).padStart(2,'0')}:30`,
           loc:['메인 구장','보조 구장','실내체육관','풋살장'][~~(Math.random()*4)],
-          color:ECOLS[ti], memo:''
+          color:ECOLS[ti], memo:'', min, cap, enrolled
         });
       }
     }
@@ -1138,6 +1148,16 @@ function markAll(s){
 
 /* ─── Schedule ───────────────────────────────────────────────────────────────── */
 const WDAY=['일','월','화','수','목','금','토'];
+// 일정 모집 상태 — min(최소인원)·cap(정원)·enrolled(현재인원) 기준.
+// min·cap 둘 다 0이면 모집 관리 안 함(null 반환).
+function evStatus(e){
+  const min=+e.min||0, cap=+e.cap||0, cur=+e.enrolled||0;
+  if(!min && !cap) return null;
+  const denom = min || cap;
+  if(cap && cur>=cap)      return {label:'마감',     color:'#6b7280', txt:`${cur}/${cap}`};
+  if(min && cur>=min)      return {label:'개강 확정', color:'#22c55e', txt:`${cur}/${denom}`};
+  return {label:'모집중', color:'#f97316', txt:`${cur}/${denom}`};
+}
 function vSched(){
   const ms=`${calY}-${String(calM+1).padStart(2,'0')}`;
   const mEvts=evts.filter(e=>e.date.startsWith(ms)).sort((a,b)=>a.date===b.date?a.start.localeCompare(b.start):a.date.localeCompare(b.date));
@@ -1160,7 +1180,12 @@ function vSched(){
       const de=byDate[ds]||[];
       return`<div class="cal-day ${ds===TODAY?'is-today':''} ${ds===selDate?'is-sel':''}" onclick="selDate='${ds}';renderPage()">
         <div class="cal-dn">${d}</div>
-        ${de.slice(0,3).map(e=>`<div class="cal-ev" style="background:${e.color}" onclick="event.stopPropagation();openEvtForm('${e.id}')" title="${h(e.start)} ${h(e.title)}">${h(e.start.slice(0,5))} ${h(e.title)}</div>`).join('')}
+        ${de.slice(0,3).map(e=>{
+          const st=evStatus(e);
+          const dim=st&&st.label!=='개강 확정' ? 'opacity:.55;' : '';
+          const mark=st?(st.label==='개강 확정'?'✓ ':st.label==='마감'?'✕ ':'‥'):'';
+          return`<div class="cal-ev" style="background:${e.color};${dim}" onclick="event.stopPropagation();openEvtForm('${e.id}')" title="${h(e.start)} ${h(e.title)}${st?' · '+st.label+' '+st.txt:''}">${mark}${h(e.start.slice(0,5))} ${h(e.title)}</div>`;
+        }).join('')}
         ${de.length>3?`<div class="cal-more">+${de.length-3}</div>`:''}
       </div>`;
     }).join('')}
@@ -1182,20 +1207,26 @@ function vSched(){
         <div class="agenda-cnt">${de.length}건</div>
         <div class="agenda-line"></div>
       </div>
-      ${de.map(e=>`
+      ${de.map(e=>{
+        const st=evStatus(e);
+        return`
         <div class="ev-card" style="border-left-color:${e.color}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
             <div style="min-width:0">
-              <div style="font-weight:700;font-size:14px;margin-bottom:3px">${h(e.title)}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
+                <span style="font-weight:700;font-size:14px">${h(e.title)}</span>
+                ${st?`<span class="rec-badge" style="background:${st.color}22;color:${st.color}">${st.label} ${st.txt}</span>`:''}
+              </div>
               <div style="font-size:12px;color:var(--txt2)">🕐 ${h(e.start)}–${h(e.end)} · ${h(e.group)}</div>
               <div style="font-size:11px;color:var(--txt3);margin-top:2px">${h(e.coach)} · 📍 ${h(e.loc)}${e.memo?' · '+h(e.memo):''}</div>
+              ${st&&st.label==='모집중'?`<div style="font-size:11px;color:var(--org);margin-top:3px">개강까지 ${Math.max(0,(+e.min||0)-(+e.enrolled||0))}명 더 필요</div>`:''}
             </div>
             <div style="display:flex;gap:5px;flex-shrink:0">
               <button class="btn btn-s btn-xs" onclick="openEvtForm('${e.id}')">수정</button>
               <button class="btn btn-d btn-xs" onclick="delEvt('${e.id}')">삭제</button>
             </div>
           </div>
-        </div>`).join('')}`;
+        </div>`;}).join('')}`;
     }).join('')}
 </div>`;
 }
@@ -1641,6 +1672,18 @@ function openEvtForm(id){
         <select class="fi" id="eco">${cfg.coaches.map(c=>`<option ${(e?.coach||cfg.coaches[0])===c?'selected':''}>${c}</option>`).join('')}</select></div>
       <div class="fg"><label class="fl">장소</label><input class="fi" id="el" value="${h(e?.loc||'메인 구장')}"></div>
     </div>
+    <div class="fg" style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:11px 12px">
+      <label class="fl" style="margin-bottom:7px">수강 모집 <span style="color:var(--txt3);font-weight:400">(그룹레슨 최소 인원 · 0이면 표시 안 함)</span></label>
+      <div style="display:flex;gap:7px">
+        <div class="fg" style="flex:1;margin:0"><label class="fl">최소 인원</label>
+          <input class="fi" type="number" inputmode="numeric" id="emin" value="${+e?.min||0}" oninput="updateRecPreview()"></div>
+        <div class="fg" style="flex:1;margin:0"><label class="fl">정원</label>
+          <input class="fi" type="number" inputmode="numeric" id="ecap" value="${+e?.cap||0}" oninput="updateRecPreview()"></div>
+        <div class="fg" style="flex:1;margin:0"><label class="fl">현재 인원</label>
+          <input class="fi" type="number" inputmode="numeric" id="ecur" value="${+e?.enrolled||0}" oninput="updateRecPreview()"></div>
+      </div>
+      <div id="recPreview" style="margin-top:9px;font-size:12px"></div>
+    </div>
     <div class="fg"><label class="fl">레슨 색상 <span style="color:var(--txt3);font-weight:400">(맨 끝 🎨 = 원하는 색 직접 선택)</span></label>
       <div class="evc-wrap">
         ${ECOLS.map(c=>`<button type="button" class="evc-sw ${(e?.color||ECOLS[0])===c?'on':''}" data-c="${c}" style="background:${c}" onclick="pickEvColor('${c}')"></button>`).join('')}
@@ -1657,6 +1700,19 @@ function openEvtForm(id){
       <button class="btn btn-g" style="flex:2" onclick="saveEvt('${e?.id||''}')">저장</button>
     </div>
   `);
+  setTimeout(updateRecPreview,20);
+}
+
+// 모집 인원 입력 → 상태 미리보기 갱신
+function updateRecPreview(){
+  const box=$('recPreview'); if(!box) return;
+  const st=evStatus({min:$('emin')?.value, cap:$('ecap')?.value, enrolled:$('ecur')?.value});
+  if(!st){ box.innerHTML=`<span style="color:var(--txt3)">최소 인원을 입력하면 모집 상태가 표시됩니다.</span>`; return; }
+  const need=Math.max(0,(+($('emin')?.value)||0)-(+($('ecur')?.value)||0));
+  box.innerHTML=`<span class="rec-badge" style="background:${st.color}22;color:${st.color}">${st.label} ${st.txt}</span>`
+    + (st.label==='모집중'?`<span style="color:var(--org);margin-left:8px">개강까지 ${need}명 더 필요</span>`:'')
+    + (st.label==='마감'?`<span style="color:var(--txt3);margin-left:8px">정원이 찼습니다</span>`:'')
+    + (st.label==='개강 확정'?`<span style="color:var(--grn);margin-left:8px">개강 가능 ✓</span>`:'');
 }
 
 // 일정 색상 선택 — 프리셋/커스텀 공통. 선택 상태 표시 + 숨은 값 갱신.
@@ -1676,7 +1732,10 @@ function saveEvt(id){
   const data={title,date:$('ed')?.value||selDate,group:$('eg')?.value||cfg.groups[0],
     coach:$('eco')?.value||cfg.coaches[0],start:$('es')?.value||'10:00',
     end:$('ee')?.value||'11:30',loc:$('el')?.value||'',
-    color:$('ecol')?.value||ECOLS[0],memo:$('em')?.value||''};
+    color:$('ecol')?.value||ECOLS[0],memo:$('em')?.value||'',
+    min:Math.max(0,parseInt($('emin')?.value||'0')||0),
+    cap:Math.max(0,parseInt($('ecap')?.value||'0')||0),
+    enrolled:Math.max(0,parseInt($('ecur')?.value||'0')||0)};
   if(id){const i=evts.findIndex(e=>e.id===id);if(i>-1)evts[i]={...evts[i],...data};}
   else evts.push({id:'e'+Date.now(),...data});
   persist();
