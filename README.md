@@ -21,7 +21,7 @@ EZRA FOOTBALL CLUB 운영을 위한 모바일 우선 PWA. 회원 관리, 출석 
 - **회원 관리** — 등록·수정·삭제(레슨 유형·구분·결제개월 선택 시 금액 자동 계산), 검색·필터(반/유형/상태)
 - **출석 체크** — 날짜·반별 출석/지각/결석 토글, 전체 출석 처리
 - **레슨 일정** — 달력 칸에 시간·제목이 바로 표시되고, 아래에 이 달 전체 일정이 날짜별로 펼쳐짐(추가·수정·삭제, 레슨별 색상 지정)
-- **수강 모집** — 그룹레슨 등에 최소 인원·정원·현재 인원을 설정하면 모집 상태(모집중/개강 확정/마감)가 일정에 표시됨
+- **수강 모집** — 그룹레슨 등에 최소 인원·정원을 정하고 **신청자 명단(회원 배정)** 으로 현재 인원이 자동 집계되어, 모집 상태(모집중/개강 확정/마감)가 일정에 표시됨
 - **수업료** — 편집 가능한 요금표, 납부 상태 토글, 반별 납부 현황
 - **데이터 지속성** — 모든 데이터가 기기에 자동 저장 (localStorage)
 - **PC ↔ 폰 실시간 동기화** — Firebase 로그인 시 같은 계정 기기끼리 실시간 동기화
@@ -166,7 +166,7 @@ lesson schedules, and tuition from a single screen. It runs from one
 - **Members** — add / edit / delete (fee auto-calculated from lesson type / category / term), search & filter (class / type / status)
 - **Attendance** — toggle present / late / absent by date and class, mark-all-present
 - **Schedule** — calendar cells show each lesson's time & title inline, with the whole month's schedule listed by date below (add / edit / delete, per-lesson color)
-- **Enrollment** — set a minimum headcount / capacity / current sign-ups per lesson (e.g. group lessons); the schedule shows the status (recruiting / confirmed / full)
+- **Enrollment** — set a minimum headcount / capacity per lesson (e.g. group lessons) and assign members via a **roster**; the current count is tallied automatically and the schedule shows the status (recruiting / confirmed / full)
 - **Tuition** — editable price list, paid-status toggle, per-class payment overview
 - **Persistence** — all data auto-saved on the device (localStorage)
 - **PC ↔ phone realtime sync** — sign in with Firebase to sync across devices on the same account
