@@ -977,6 +977,26 @@ function vDash(){
         </div></div>`;
     }).join('')}
   </div>
+  ${(()=>{
+    const rec=evts.filter(e=>e.date>=TODAY && evStatus(e));
+    if(!rec.length) return '';
+    const recr=rec.filter(e=>evStatus(e).label==='모집중').sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+    const conf=rec.filter(e=>evStatus(e).label==='개강 확정').length;
+    const full=rec.filter(e=>evStatus(e).label==='마감').length;
+    return `<div class="card" style="padding:14px 15px;margin-bottom:12px">
+      <div class="sec-title">레슨 모집 현황</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:${recr.length?'10px':'0'}">
+        <span class="rec-badge" style="background:#f9731622;color:#f97316">모집중 ${recr.length}</span>
+        <span class="rec-badge" style="background:#22c55e22;color:#22c55e">개강 확정 ${conf}</span>
+        ${full?`<span class="rec-badge" style="background:#6b728022;color:#6b7280">마감 ${full}</span>`:''}
+      </div>
+      ${recr.slice(0,6).map(e=>{const st=evStatus(e);const need=Math.max(0,(+e.min||0)-evEnrolled(e));const p=e.date.split('-');
+        return `<div onclick="go('schedule')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(31,45,64,.5);cursor:pointer">
+          <div style="min-width:0"><span style="font-size:12px;color:var(--txt3)">${+p[1]}/${+p[2]}</span> <span style="font-size:13px;font-weight:600">${h(e.title)}</span></div>
+          <span style="font-size:11px;color:var(--org);font-weight:700;flex-shrink:0;white-space:nowrap">${st.txt} · ${need}명 더</span>
+        </div>`;}).join('')}
+    </div>`;
+  })()}
   ${todayEvts.length?`<div class="card" style="padding:14px 15px;margin-bottom:12px">
     <div class="sec-title">오늘 일정 (${todayEvts.length}건)</div>
     ${todayEvts.slice(0,4).map(e=>`
@@ -1230,7 +1250,8 @@ function vSched(){
               ${st&&st.label==='모집중'?`<div style="font-size:11px;color:var(--org);margin-top:3px">개강까지 ${Math.max(0,(+e.min||0)-evEnrolled(e))}명 더 필요${e.roster&&e.roster.length?' · '+e.roster.map(mid=>{const mm=members.find(x=>x.id===mid);return mm?h(mm.name):'';}).filter(Boolean).join(', '):''}</div>`:
                 (st&&e.roster&&e.roster.length?`<div style="font-size:11px;color:var(--txt3);margin-top:3px">신청자: ${e.roster.map(mid=>{const mm=members.find(x=>x.id===mid);return mm?h(mm.name):'';}).filter(Boolean).join(', ')}</div>`:'')}
             </div>
-            <div style="display:flex;gap:5px;flex-shrink:0">
+            <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+              ${e.roster&&e.roster.length?`<button class="btn btn-g btn-xs" onclick="openEvtAttend('${e.id}')">✅ 출석</button>`:''}
               <button class="btn btn-s btn-xs" onclick="openEvtForm('${e.id}')">수정</button>
               <button class="btn btn-d btn-xs" onclick="delEvt('${e.id}')">삭제</button>
             </div>
@@ -1240,6 +1261,48 @@ function vSched(){
 </div>`;
 }
 function goToday(){ const t=new Date(); calY=t.getFullYear(); calM=t.getMonth(); selDate=TODAY; renderPage(); }
+
+// ── 일정(신청자 명단) 출석 체크 ── 출석 데이터(att[회원][날짜])와 공유
+function markAtt(mid,date,st){
+  if(!att[mid]) att[mid]={};
+  if(st) att[mid][date]=st; else delete att[mid][date];
+  persist();
+}
+function openEvtAttend(id){
+  const e=evts.find(x=>x.id===id); if(!e) return;
+  const roster=(e.roster||[]).map(mid=>members.find(m=>m.id===mid)).filter(Boolean);
+  const pres=roster.filter(m=>att[m.id]?.[e.date]==='present').length;
+  const late=roster.filter(m=>att[m.id]?.[e.date]==='late').length;
+  const rows=roster.map(m=>{
+    const s=att[m.id]?.[e.date];
+    const btn=(val,lbl,col)=>`<button onclick="markAtt('${m.id}','${e.date}','${val}');openEvtAttend('${id}')"
+      style="flex:1;padding:7px 0;border-radius:8px;border:1px solid ${s===val?col:'var(--bdr)'};background:${s===val?col+'22':'transparent'};color:${s===val?col:'var(--txt3)'};font-size:12px;font-weight:700;cursor:pointer">${lbl}</button>`;
+    const abBtn=`<button onclick="markAtt('${m.id}','${e.date}','');openEvtAttend('${id}')"
+      style="flex:1;padding:7px 0;border-radius:8px;border:1px solid ${!s?'var(--red)':'var(--bdr)'};background:${!s?'rgba(239,68,68,.13)':'transparent'};color:${!s?'var(--red)':'var(--txt3)'};font-size:12px;font-weight:700;cursor:pointer">결석</button>`;
+    return`<div style="padding:9px 0;border-bottom:1px solid var(--bdr)">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:7px">
+        <div class="ava" style="width:30px;height:30px;font-size:12px;background:${ltColor(m.ltype)}20;color:${ltColor(m.ltype)};flex-shrink:0">${m.name[0]}</div>
+        <div style="min-width:0"><div style="font-size:13px;font-weight:700">${h(m.name)}</div>
+          <div style="font-size:10px;color:var(--txt3)">${h(m.ltype)}${isMembership(m.ltype)?' · '+h(m.cat):''}</div></div>
+      </div>
+      <div style="display:flex;gap:6px">${btn('present','출석 ✓','#22c55e')}${btn('late','지각 !','#f97316')}${abBtn}</div>
+    </div>`;
+  }).join('');
+  showSheet(`출석 · ${e.title}`,`
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:4px">${e.date} · ${h(e.start)}–${h(e.end)} · ${h(e.group)}</div>
+    <div style="font-size:12px;margin-bottom:10px">출석 <b style="color:var(--grn)">${pres}</b> · 지각 <b style="color:var(--org)">${late}</b> · 전체 ${roster.length}명</div>
+    ${roster.length?`<button class="btn btn-s" style="width:100%;margin-bottom:6px" onclick="markAllRoster('${id}')">전체 출석 처리</button>${rows}`:
+      `<div class="empty" style="padding:24px 0"><div class="empty-txt">신청자 명단이 비어 있습니다</div></div>`}
+    <div class="f-actions" style="margin-top:14px">
+      <button class="btn btn-g" style="flex:1" onclick="closeSheet();renderPage()">완료</button>
+    </div>
+  `);
+}
+function markAllRoster(id){
+  const e=evts.find(x=>x.id===id); if(!e) return;
+  (e.roster||[]).forEach(mid=>{ if(members.some(m=>m.id===mid)){ if(!att[mid]) att[mid]={}; att[mid][e.date]='present'; } });
+  persist(); openEvtAttend(id); toast2('전체 출석 처리 완료');
+}
 function prevM(){if(calM===0){calY--;calM=11;}else calM--;renderPage();}
 function nextM(){if(calM===11){calY++;calM=0;}else calM++;renderPage();}
 function delEvt(id){evts=evts.filter(e=>e.id!==id);persist();renderPage();toast2('삭제되었습니다','err');}
@@ -1717,7 +1780,12 @@ function openEvtForm(id){
 
 // ── 신청자 명단(회원 배정) ──
 let _roster=[];
-function rosterAdd(id){ if(!_roster.includes(id)) _roster.push(id); renderRoster(); renderRosterPicker(); if($('rsearch')) $('rsearch').focus(); }
+function rosterAdd(id){
+  const cap=+($('ecap')?.value)||0;
+  if(cap && _roster.length>=cap){ toast2(`정원(${cap}명)이 찼습니다`,'err'); return; }
+  if(!_roster.includes(id)) _roster.push(id);
+  renderRoster(); renderRosterPicker(); if($('rsearch')) $('rsearch').focus();
+}
 function rosterDel(id){ _roster=_roster.filter(x=>x!==id); renderRoster(); renderRosterPicker(); }
 function renderRoster(){
   const box=$('rosterBox'); if(!box) return;
@@ -1731,6 +1799,11 @@ function renderRoster(){
 }
 function renderRosterPicker(){
   const list=$('rlist'); if(!list) return;
+  const cap=+($('ecap')?.value)||0;
+  if(cap && _roster.length>=cap){
+    list.innerHTML=`<div style="font-size:12px;color:var(--txt3);padding:10px 4px;text-align:center">정원(${cap}명)이 찼습니다. 추가하려면 명단에서 빼거나 정원을 늘리세요.</div>`;
+    return;
+  }
   const q=($('rsearch')?.value||'').trim().toLowerCase();
   const cands=members
     .filter(m=>!_roster.includes(m.id))
@@ -1750,6 +1823,7 @@ function renderRosterPicker(){
 
 // 모집 인원/명단 → 상태 미리보기 갱신
 function updateRecPreview(){
+  renderRosterPicker();   // 정원 변경 시 후보 목록/마감 안내 갱신
   const box=$('recPreview'); if(!box) return;
   const min=+($('emin')?.value)||0, cap=+($('ecap')?.value)||0, cur=_roster.length;
   const st=evStatus({min,cap,roster:_roster});
@@ -1782,10 +1856,14 @@ function saveEvt(id){
     min:Math.max(0,parseInt($('emin')?.value||'0')||0),
     cap:Math.max(0,parseInt($('ecap')?.value||'0')||0),
     roster:_roster.slice(), enrolled:_roster.length};
+  const wasConfirmed = id ? (()=>{const pe=evts.find(e=>e.id===id); const s=pe&&evStatus(pe); return s&&s.label==='개강 확정';})() : false;
   if(id){const i=evts.findIndex(e=>e.id===id);if(i>-1)evts[i]={...evts[i],...data};}
   else evts.push({id:'e'+Date.now(),...data});
   persist();
-  selDate=data.date; closeSheet(); renderPage(); toast2('저장되었습니다');
+  selDate=data.date; closeSheet(); renderPage();
+  const newSt=evStatus(data);
+  if(newSt && newSt.label==='개강 확정' && !wasConfirmed) toast2(`🎉 개강 확정! ${title} (${newSt.txt})`);
+  else toast2('저장되었습니다');
 }
 
 /* ─── Bottom Sheet ───────────────────────────────────────────────────────────── */
