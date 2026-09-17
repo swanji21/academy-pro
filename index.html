@@ -937,7 +937,7 @@ const TITLES={dashboard:'대시보드',members:'회원 관리',attendance:'출�
 function renderPage(){
   $('hdrTitle').textContent=TITLES[view];
   $('hdrRight').innerHTML='';
-  if(view==='members')   $('hdrRight').innerHTML=`<button class="btn btn-g btn-sm" onclick="openMemberForm()">+ 등록</button>`;
+  if(view==='members')   $('hdrRight').innerHTML=`<button class="btn btn-s btn-sm" onclick="openExport()" title="EZRA FM으로 내보내기">📤 FM</button><button class="btn btn-g btn-sm" onclick="openMemberForm()">+ 등록</button>`;
   if(view==='schedule')  $('hdrRight').innerHTML=`<button class="btn btn-g btn-sm" onclick="openEvtForm()">+ 추가</button>`;
   if(view==='payment')   $('hdrRight').innerHTML=`<button class="btn btn-s btn-sm" onclick="openSettings()">⚙️ 설정</button>`;
   const map={dashboard:vDash,members:vMembers,attendance:vAtt,schedule:vSched,payment:vPay};
@@ -1353,6 +1353,50 @@ function vPay(){
 const readInt=id=>{const el=$(id);return Math.max(0, parseInt(String(el?.value||'0').replace(/[^0-9]/g,''))||0);};
 
 // 설정 허브
+/* ─── EZRA FM으로 회원 내보내기 (이름·포지션·생년월일 등) ───────────────────────── */
+function academyExportPayload(){
+  return {
+    source:'ezra-academy', app:'EZRA FOOTBALL CLUB', version:1,
+    exportedAt:new Date().toISOString(),
+    players: members
+      .slice().sort((a,b)=>a.name.localeCompare(b.name,'ko'))
+      .map(m=>({ name:m.name, pos:(m.pos&&m.pos!=='없음')?m.pos:'', birth:m.birth||'', group:m.group||'', status:m.status||'' }))
+  };
+}
+function openExport(){
+  const payload=academyExportPayload();
+  const json=JSON.stringify(payload);
+  showSheet('EZRA FM으로 내보내기',`
+    <div style="font-size:12px;color:var(--txt2);line-height:1.65;margin-bottom:12px">
+      회원 <b style="color:var(--txt)">${payload.players.length}명</b>의 <b style="color:var(--txt)">이름·포지션·생년월일</b>을 내보냅니다.<br>
+      EZRA FM(매니저 앱)에서 <b style="color:var(--txt)">☰ → 아카데미 회원 불러오기</b>에 아래 내용을 붙여넣으면 선수로 등록됩니다.
+      <span style="color:var(--txt3)">(능력치는 FM에서 입력)</span>
+    </div>
+    <textarea id="expText" readonly onclick="this.select()"
+      style="width:100%;height:150px;font-size:11px;font-family:monospace;background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:9px;padding:10px;resize:none">${h(json)}</textarea>
+    <div class="f-actions" style="margin-top:12px">
+      <button class="btn btn-s" style="flex:1" onclick="downloadExport()">파일로 저장</button>
+      <button class="btn btn-g" style="flex:2" onclick="copyExport()">📋 복사</button>
+    </div>
+  `);
+}
+function copyExport(){
+  const t=$('expText'); if(!t) return; t.select();
+  const done=()=>toast2('복사되었습니다 · FM에 붙여넣으세요');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(done).catch(()=>{try{document.execCommand('copy');done();}catch(e){toast2('복사 실패 — 길게 눌러 복사하세요','err');}});
+  else { try{document.execCommand('copy');done();}catch(e){toast2('복사 실패 — 길게 눌러 복사하세요','err');} }
+}
+function downloadExport(){
+  const t=$('expText'); if(!t) return;
+  try{
+    const blob=new Blob([t.value],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='ezra-academy-members.json'; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},100);
+    toast2('파일로 저장되었습니다');
+  }catch(e){ toast2('저장 실패 — 복사를 이용하세요','err'); }
+}
+
 function openSettings(){
   showSheet('설정', `
     <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:14px">
