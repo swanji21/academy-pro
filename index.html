@@ -696,6 +696,19 @@ function memberFee(m){ return Math.round(baseFee(m) * (1 - discPct(m)/100)); }
 // 결제 단위 라벨 (예: "주2회 · 3달치", "1일")
 function feeUnit(m){ return isMembership(m.ltype) ? `주${m.freq||1}회 · ${m.term==='3'?'3':'2'}달치` : '1일'; }
 
+// ── 남은 횟수 · 결제일 계산 (회원제만) ──
+function payStartOf(m){ return m.paidDate || m.joinDate || TODAY; }          // 현재 결제 주기 시작일
+function totalSessions(m){ return isMembership(m.ltype) ? (m.freq||1)*WEEKS_PER_MONTH*(m.term==='3'?3:2) : 1; }
+function usedSessions(m){                                                     // 결제 시작일 이후 출석/지각 수
+  const start=payStartOf(m), r=att[m.id]||{};
+  return Object.keys(r).filter(d=>(r[d]==='present'||r[d]==='late') && d>=start && d<=TODAY).length;
+}
+function remainingSessions(m){ return Math.max(0, totalSessions(m)-usedSessions(m)); }
+function addMonthsISO(dateStr,n){ const d=new Date((dateStr||TODAY)+'T00:00:00'); if(isNaN(d.getTime())) return null; d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); }
+function nextPayDate(m){ return isMembership(m.ltype) ? addMonthsISO(payStartOf(m), m.term==='3'?3:2) : null; }
+function daysUntil(dateStr){ if(!dateStr) return null; return Math.round((new Date(dateStr+'T00:00:00')-new Date(TODAY+'T00:00:00'))/86400000); }
+function ddayLabel(dateStr){ const n=daysUntil(dateStr); if(n===null) return ''; return n===0?'D-DAY':(n>0?'D-'+n:'D+'+(-n)); }
+
 function seedData(){
   const NAMES=['김민준','이서연','박도현','최수아','정우진','강지호','윤예린','장현우','임나연','한태양',
                '오승민','신하늘','권준서','황보미','송재원','안다은','조성훈','유나영','배동혁','전소희',
@@ -716,7 +729,7 @@ function seedData(){
       ltype, cat, term, freq, group:cfg.groups[i%cfg.groups.length], pos:POS[i%POS.length],
       coach:cfg.coaches[i%cfg.coaches.length], status:i%9===0?'휴강':i%14===0?'대기':'활성',
       joinDate:jd.toISOString().slice(0,10),
-      paid:i%3!==0, paidDate:i%3!==0?TODAY:null,
+      paid:i%3!==0, paidDate:i%3!==0?DA(TODAY,-((i*13)%95)):null,   // 결제일 분산(데모)
       notes:i%4===0?['드리블 특기','체력 우수','대회 출전 경력'][i%3]:''
     });
     att[id]={};
@@ -949,6 +962,11 @@ function renderPage(){
 function vDash(){
   const s=stats();
   const todayEvts=evts.filter(e=>e.date===TODAY).sort((a,b)=>a.start.localeCompare(b.start));
+  // 결제일 임박/지남(7일 이내) + 횟수 소진 임박(잔여 ≤2) 알림
+  const payDue=members.filter(m=>isMembership(m.ltype)&&m.paid&&m.status!=='대기')
+    .map(m=>({m,np:nextPayDate(m),du:daysUntil(nextPayDate(m)),rem:remainingSessions(m)}))
+    .filter(x=>x.du!==null && (x.du<=7 || x.rem<=2))
+    .sort((a,b)=>a.du-b.du);
   return`
 <div class="hscroll">
   ${sc('👥','전체 회원',s.total+'명','활성 '+s.active+'명','#3b82f6')}
@@ -957,6 +975,19 @@ function vDash(){
   ${sc('⚠️','미납',s.unpaidCnt+'명',W(s.pending),'#f97316')}
 </div>
 <div class="sec">
+  ${payDue.length?`<div class="card" style="padding:14px 15px;margin-bottom:12px;border:1px solid rgba(249,115,22,.35)">
+    <div class="sec-title">🔔 결제일 알림 <span style="font-size:11px;color:var(--txt3);font-weight:400">(7일 이내·소진 임박 ${payDue.length}명)</span></div>
+    ${payDue.slice(0,8).map(({m,np,du,rem})=>{
+      const overdue=du<0, soon=du<=7;
+      const col=overdue?'var(--red)':soon?'var(--org)':'var(--txt2)';
+      const tag=overdue?`${-du}일 지남`:du===0?'오늘':`D-${du}`;
+      return `<div onclick="openMemberDetail('${m.id}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(31,45,64,.5);cursor:pointer">
+        <div style="min-width:0"><span style="font-size:13px;font-weight:700">${h(m.name)}</span>
+          <span style="font-size:10px;color:var(--txt3)"> · ${h(m.ltype)}${isMembership(m.ltype)?' '+h(m.cat):''}</span>
+          <div style="font-size:10px;color:var(--txt3)">잔여 <b style="color:${rem<=2?'var(--red)':'var(--txt2)'}">${rem}회</b> · 결제일 ${np}</div></div>
+        <span style="font-size:12px;font-weight:800;color:${col};flex-shrink:0;white-space:nowrap">${tag}</span>
+      </div>`;}).join('')}
+  </div>`:''}
   <div class="card" style="padding:14px 15px;margin-bottom:12px">
     <div class="sec-title">반별 현황</div>
     ${cfg.groups.map((g,gi)=>{
@@ -1098,7 +1129,7 @@ function reMlist(){
           </div>
           <div class="mright">
             <div class="mfee">${~~(memberFee(m)/10000)}만원</div>
-            <div style="font-size:9px;color:var(--txt3)">${feeUnit(m)}</div>
+            ${isMembership(m.ltype)?`<div style="font-size:9px;font-weight:700;color:${remainingSessions(m)<=2?'var(--red)':'var(--txt2)'}">잔여 ${remainingSessions(m)}회</div>`:`<div style="font-size:9px;color:var(--txt3)">${feeUnit(m)}</div>`}
             <div class="mpaid" style="color:${m.paid?'var(--grn)':'var(--org)'}">${m.paid?'납부':'미납'}</div>
           </div>
         </div>`).join('')}
@@ -1636,6 +1667,21 @@ function openMemberDetail(id){
         </div>
       </div>
     </div>
+    ${isMembership(m.ltype)?(()=>{
+      const rem=remainingSessions(m), tot=totalSessions(m), np=nextPayDate(m), du=daysUntil(np);
+      const remCol=rem<=2?'var(--red)':rem<=Math.ceil(tot*0.25)?'var(--org)':'var(--grn)';
+      const payCol=du<0?'var(--red)':du<=7?'var(--org)':'var(--txt)';
+      return `<div style="display:flex;gap:10px;padding:0 16px 4px">
+        <div style="flex:1;background:var(--bg2);border-radius:10px;padding:11px 12px">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:4px">남은 횟수</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${remCol}">${rem}<span style="font-size:13px;color:var(--txt3)"> / ${tot}회</span></div>
+        </div>
+        <div style="flex:1;background:var(--bg2);border-radius:10px;padding:11px 12px">
+          <div style="font-size:10px;color:var(--txt3);margin-bottom:4px">다음 결제일</div>
+          <div style="font-size:15px;font-weight:700;color:${payCol}">${np||'-'}</div>
+          <div style="font-size:11px;font-weight:700;color:${payCol}">${np?ddayLabel(np)+(du<0?' · 지남':du===0?' · 오늘':''):''}</div>
+        </div>
+      </div>`;})():''}
     <div class="info-grid">
       ${[['결제 단위',feeUnit(m)],['반',m.group],['담당 코치',m.coach],['등록일',m.joinDate],['할인율',discPct(m)+'%'],[feeUnit(m)+' 요금',W(memberFee(m))]].map(([k,v])=>`
         <div class="info-cell">

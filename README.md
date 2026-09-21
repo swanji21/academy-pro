@@ -18,7 +18,8 @@ EZRA FOOTBALL CLUB 운영을 위한 모바일 우선 PWA. 회원 관리, 출석 
 ## 주요 기능
 
 - **대시보드** — 전체 회원·출석·납부 현황, 반별 통계, 미납 회원 한눈에 보기
-- **회원 관리** — 등록·수정·삭제(레슨 유형·구분·결제개월 선택 시 금액 자동 계산), 검색·필터(반/유형/상태)
+- **회원 관리** — 등록·수정·삭제(레슨 유형·구분·결제개월 선택 시 금액 자동 계산), 검색·필터(반/유형/상태), **남은 횟수 표기**(출석 기준 잔여 회차)
+- **결제일 알림** — 회원별 **다음 결제일·D-day**를 상세에 표시하고, 대시보드에서 결제일 7일 이내·지남·횟수 소진 임박 회원을 🔔 알림으로 모아 보여줌
 - **출석 체크** — 날짜·반별 출석/지각/결석 토글, 전체 출석 처리 · 일정의 신청자 명단을 그대로 **출석부로 바로 사용**(레슨별 출석 체크)
 - **레슨 일정** — 달력 칸에 시간·제목이 바로 표시되고, 아래에 이 달 전체 일정이 날짜별로 펼쳐짐(추가·수정·삭제, 레슨별 색상 지정)
 - **수강 모집** — 그룹레슨 등에 최소 인원·정원을 정하고 **신청자 명단(회원 배정)** 으로 현재 인원이 자동 집계, 모집 상태(모집중/개강 확정/마감)가 일정·달력에 표시. **정원 초과 추가는 자동 차단**, 최소 인원 달성 시 **개강 확정 알림**과 **대시보드 모집 현황**으로 표시
@@ -163,7 +164,8 @@ lesson schedules, and tuition from a single screen. It runs from one
 ## Features
 
 - **Dashboard** — totals for members, attendance, and payments; per-class stats; unpaid members at a glance
-- **Members** — add / edit / delete (fee auto-calculated from lesson type / category / term), search & filter (class / type / status)
+- **Members** — add / edit / delete (fee auto-calculated from lesson type / category / term), search & filter (class / type / status), **remaining-sessions** count (attendance-based)
+- **Payment reminders** — each member's **next payment date + D-day** on the detail view, and a dashboard 🔔 alert grouping members due within 7 days / overdue / nearly out of sessions
 - **Attendance** — toggle present / late / absent by date and class, mark-all-present; a lesson's roster doubles as its **attendance sheet** (check attendance per lesson)
 - **Schedule** — calendar cells show each lesson's time & title inline, with the whole month's schedule listed by date below (add / edit / delete, per-lesson color)
 - **Enrollment** — set a minimum headcount / capacity per lesson (e.g. group lessons) and assign members via a **roster**; the count is tallied automatically, adding past capacity is blocked, and reaching the minimum triggers a **confirmation notice** plus a **dashboard recruitment summary** (recruiting / confirmed / full)
