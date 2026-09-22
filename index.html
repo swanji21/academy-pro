@@ -1584,26 +1584,41 @@ function openPriceEditor(){
   _ppOpen = null;
   renderPriceEditor();
 }
-// 현재 요금(_pw)에서 주횟수 할인율 커브 추정 (기준 구분의 f1 대비 fN)
-function deriveCurve(name){
-  const p=_pw[name]||{}; const base = _pu[name] ? (p.all||{}) : (p[CATS[0]]||{});
-  const f1=base.f1||0, c={};
-  [2,3,4,5].forEach(N=>{ c['f'+N]= (f1>0 && base['f'+N]!=null) ? Math.max(0,Math.min(95, Math.round((1-(base['f'+N]/(f1*N)))*100))) : 0; });
+// 한 구분(f1..f5)에서 주횟수 할인율 커브 추정
+function deriveCurveFor(bucket){
+  const f1=(bucket&&bucket.f1)||0, c={};
+  [2,3,4,5].forEach(N=>{ c['f'+N]= (f1>0 && bucket['f'+N]!=null) ? Math.max(0,Math.min(95, Math.round((1-(bucket['f'+N]/(f1*N)))*100))) : 0; });
   return c;
 }
-function openFreqPct(ti){ _pSync(); const name=cfg.ltypes[ti].name; if(!_ppStore[name]) _ppStore[name]=deriveCurve(name); _ppOpen=ti; renderPriceEditor(); }
+// 유형의 할인율 커브 — 키는 ascii('all' 또는 CATK). 통합:['all'] / 분리:['ad','te','yo']
+function pctKeys(name){ return _pu[name] ? ['all'] : CATS.map(c=>CATK[c]); }
+function pwBucket(name,k){ return (_pw[name]||{})[k==='all'?'all':CATKR[k]]||{}; }
+function deriveCurve(name){
+  const o={}; pctKeys(name).forEach(k=>{ o[k]=deriveCurveFor(pwBucket(name,k)); }); return o;
+}
+// 저장된(또는 구버전) 커브를 현재 통합/분리 형태에 맞게 정규화
+function normFreqCurve(name){
+  const keys=pctKeys(name); let cur=_ppStore[name];
+  const isPerCurve = cur && (cur.f2!=null); // 구버전: {f2..f5} (유형 단일)
+  const out={};
+  keys.forEach(k=>{
+    if(cur && cur[k] && cur[k].f2!=null) out[k]=clone(cur[k]);
+    else if(isPerCurve) out[k]=clone(cur);        // 구버전 단일 커브 → 각 키에 복제
+    else out[k]=deriveCurveFor(pwBucket(name,k));
+  });
+  _ppStore[name]=out; return out;
+}
+function openFreqPct(ti){ _pSync(); const name=cfg.ltypes[ti].name; normFreqCurve(name); _ppOpen=ti; renderPriceEditor(); }
 function cancelFreqPct(){ _ppOpen=null; renderPriceEditor(); }
 function applyFreqPct(ti){
-  const name=cfg.ltypes[ti].name, curve={};
-  [2,3,4,5].forEach(N=>{ curve['f'+N]=readPct('pd_'+N); });
-  _ppStore[name]=curve;
-  const cats = _pu[name] ? ['all'] : CATS;
-  cats.forEach(ckey=>{
-    const storeKey = ckey==='all'?'all':ckey;
-    const bucket=_pw[name] && _pw[name][storeKey]; if(!bucket) return;
+  const name=cfg.ltypes[ti].name, keys=pctKeys(name), curves={};
+  keys.forEach(k=>{
+    const c={}; [2,3,4,5].forEach(N=>{ c['f'+N]=readPct('pd_'+k+'_'+N); }); curves[k]=c;
+    const bucket=pwBucket(name,k); if(!bucket || bucket.f1==null) return;
     const b=bucket.f1||0;
-    [2,3,4,5].forEach(N=>{ bucket['f'+N]=Math.round(b*N*(1-(curve['f'+N]||0)/100)); });
+    [2,3,4,5].forEach(N=>{ bucket['f'+N]=Math.round(b*N*(1-(c['f'+N]||0)/100)); });
   });
+  _ppStore[name]=curves;
   _ppOpen=null; renderPriceEditor(); toast2('주횟수 할인율 적용됨');
 }
 const readPct=id=>{const el=$(id);return Math.max(0, Math.min(100, parseInt(String(el?.value||'0').replace(/[^0-9]/g,''))||0));};
@@ -1664,14 +1679,19 @@ function renderPriceEditor(){
         <option ${uni?'selected':''}>통합</option>
       </select>
       <button class="btn btn-s btn-xs" style="flex-shrink:0" onclick="openFreqPct(${ti})">％ 할인율</button>`;
-    // 할인율 입력 폼(이 유형만)
+    // 할인율 입력 폼(이 유형만) — 통합: 공통 1세트 / 분리: 구분별
     if(_ppOpen===ti){
       const cv=_ppStore[t.name]||{};
-      const body = `<div style="font-size:11px;color:var(--txt3);line-height:1.55;margin:6px 0 8px">주1회 기준가는 그대로 두고, <b style="color:var(--txt2)">주2~5회 = 주1회가 × 횟수 × (1−할인율)</b>로 계산합니다. 구분별 주1회 금액에 각각 적용됩니다.</div>
+      const blockFor=(key,lbl)=>`
+        <div style="font-size:11px;font-weight:700;color:var(--txt2);margin:10px 0 5px">${lbl} 할인율</div>
         <div style="display:flex;gap:7px;flex-wrap:wrap">${[2,3,4,5].map(N=>`
-          <div class="fg" style="flex:1 1 40%;margin:0"><label class="fl">주${N}회 할인율(%)</label>
-            <input class="fi" type="number" inputmode="numeric" id="pd_${N}" value="${cv['f'+N]||0}"></div>`).join('')}</div>
-        <div class="f-actions" style="margin-top:10px">
+          <div class="fg" style="flex:1 1 40%;margin:0"><label class="fl">주${N}회 (%)</label>
+            <input class="fi" type="number" inputmode="numeric" id="pd_${key}_${N}" value="${(cv[key]&&cv[key]['f'+N])||0}"></div>`).join('')}</div>`;
+      const blocks = uni ? blockFor('all', CATS.join('·')+' 공통')
+                         : CATS.map(cat=>blockFor(CATK[cat], cat)).join('');
+      const body = `<div style="font-size:11px;color:var(--txt3);line-height:1.55;margin:6px 0 2px">주1회 기준가는 그대로 두고, <b style="color:var(--txt2)">주2~5회 = 주1회가 × 횟수 × (1−할인율)</b>로 계산합니다.${uni?'':' 구분별로 다르게 지정할 수 있습니다.'}</div>
+        ${blocks}
+        <div class="f-actions" style="margin-top:12px">
           <button class="btn btn-s" style="flex:1" onclick="cancelFreqPct()">취소</button>
           <button class="btn btn-g" style="flex:2" onclick="applyFreqPct(${ti})">적용</button>
         </div>`;
