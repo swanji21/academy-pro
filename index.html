@@ -1568,15 +1568,26 @@ function openPriceEditor(){
   renderPriceEditor();
 }
 const readPct=id=>{const el=$(id);return Math.max(0, Math.min(100, parseInt(String(el?.value||'0').replace(/[^0-9]/g,''))||0));};
-// 화면 입력값을 작업 상태(_pw/_pd)로 회수 (재렌더/토글 전 호출)
-const readFreqInputs=(ti,key)=>{ const o={}; FREQS.forEach(f=>{ o['f'+f]=readInt(`pm_${ti}_${key}_${f}`); }); return o; };
+// 표시 단위: 'month'(월 요금) | 'session'(회당 요금). 저장은 항상 월 요금, 표시/입력만 전환.
+let priceView='month'; try{ priceView=localStorage.getItem('academyPro:priceView')||'month'; }catch(e){}
+const CATKR={ad:'성인',te:'청소년',yo:'유소년'};
+function toDisplay(monthly,f){ return priceView==='session' ? Math.round(monthly/(WEEKS_PER_MONTH*f)) : monthly; }
+function fromDisplay(val,f){ return priceView==='session' ? Math.round(val*WEEKS_PER_MONTH*f) : val; }
+function setPriceView(v){ _pSync(); priceView=v; try{localStorage.setItem('academyPro:priceView',v);}catch(e){} renderPriceEditor(); }
+// 화면 입력값 회수 — 주횟수 금액은 입력 즉시 _pw에 반영되므로 여기선 할인·1회요금만.
 function _pSync(){
   TERMS.forEach(t=>{ const v=$('td_'+t); if(v) _pd[t]=readPct('td_'+t); });
-  cfg.ltypes.forEach((t,ti)=>{
-    if(!t.membership){ _pw[t.name]={once:readInt('po_'+ti)}; return; }
-    if(_pu[t.name]) _pw[t.name]={ all: readFreqInputs(ti,'all') };
-    else { const o={}; CATS.forEach(cat=>{ o[cat]=readFreqInputs(ti,CATK[cat]); }); _pw[t.name]=o; }
-  });
+  cfg.ltypes.forEach((t,ti)=>{ if(!t.membership) _pw[t.name]={once:readInt('po_'+ti)}; });
+}
+// 주횟수 금액 편집 → 월 요금으로 환산해 즉시 저장 + 보조표시 갱신
+function _pSetFreq(ti,key,f,raw){
+  const name=cfg.ltypes[ti].name, storeKey=(key==='all')?'all':CATKR[key];
+  const monthly=fromDisplay(Math.max(0,parseInt(String(raw).replace(/[^0-9]/g,''))||0), f);
+  if(!_pw[name]||typeof _pw[name]!=='object') _pw[name]={};
+  if(!_pw[name][storeKey]||typeof _pw[name][storeKey]!=='object') _pw[name][storeKey]={};
+  _pw[name][storeKey]['f'+f]=monthly;
+  const hn=$('hn_'+ti+'_'+key+'_'+f);
+  if(hn) hn.textContent = priceView==='session' ? '월 '+W(monthly) : '회당 '+W(Math.round(monthly/(WEEKS_PER_MONTH*f)));
 }
 function _pToggleUnified(ti,val){
   _pSync();
@@ -1586,13 +1597,18 @@ function _pToggleUnified(ti,val){
   _pu[name]=uni;
   renderPriceEditor();
 }
-// 주횟수별 월요금 입력(주1~5회)
+// 주횟수별 금액 입력(주1~5회) — 표시 단위(월/회당)에 맞춰 값 + 보조표시
 function pmFreqInputs(ti,key,obj){
-  return `<div style="display:flex;gap:7px;flex-wrap:wrap">${FREQS.map(f=>`
-    <div class="fg" style="flex:1 1 30%;margin:0"><label class="fl">주${f}회</label>
-      <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_${key}_${f}" value="${(obj&&obj['f'+f])||0}"></div>`).join('')}</div>`;
+  return `<div style="display:flex;gap:7px;flex-wrap:wrap">${FREQS.map(f=>{
+    const monthly=(obj&&obj['f'+f])||0;
+    const other= priceView==='session' ? '월 '+W(monthly) : '회당 '+W(Math.round(monthly/(WEEKS_PER_MONTH*f)));
+    return `<div class="fg" style="flex:1 1 30%;margin:0"><label class="fl">주${f}회</label>
+      <input class="fi" type="number" inputmode="numeric" id="pm_${ti}_${key}_${f}" value="${toDisplay(monthly,f)}" oninput="_pSetFreq(${ti},'${key}',${f},this.value)">
+      <div id="hn_${ti}_${key}_${f}" style="font-size:9px;color:var(--txt3);margin-top:2px">${other}</div></div>`;
+  }).join('')}</div>`;
 }
 function renderPriceEditor(){
+  const unitLbl = priceView==='session'?'회당':'월';
   const sections=cfg.ltypes.map((t,ti)=>{
     if(!t.membership){
       const once=(_pw[t.name]&&_pw[t.name].once)||0;
@@ -1609,19 +1625,25 @@ function renderPriceEditor(){
         <option ${uni?'selected':''}>통합</option>
       </select>`;
     const body = uni
-      ? `<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">${CATS.join('·')} 공통 · 월 요금</div>${pmFreqInputs(ti,'all',p.all)}`
-      : CATS.map(cat=>`<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">${cat} · 월 요금</div>${pmFreqInputs(ti,CATK[cat],p[cat])}`).join('');
+      ? `<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">${CATS.join('·')} 공통 · ${unitLbl} 요금</div>${pmFreqInputs(ti,'all',p.all)}`
+      : CATS.map(cat=>`<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:8px 0 5px">${cat} · ${unitLbl} 요금</div>${pmFreqInputs(ti,CATK[cat],p[cat])}`).join('');
     return `<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 4px;gap:8px">
         <div style="font-size:13px;font-weight:700;color:${ltColor(t.name)}">${h(t.name)}
-          <span style="color:var(--txt3);font-weight:400;font-size:10px">· 회원제 · 월 요금(주횟수별)</span></div>
+          <span style="color:var(--txt3);font-weight:400;font-size:10px">· 회원제 · ${unitLbl} 요금(주횟수별)</span></div>
         ${toggle}
       </div>${body}`;
   }).join('');
   showSheet('요금표 편집', `
-    <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:2px">
-      회원제는 <b style="color:var(--txt)">주횟수별 월 요금</b>을 입력하면 결제금액 =
-      월요금 × 개월수(2·3달치)로 자동 계산됩니다.
-      각 수강은 <b style="color:var(--txt)">구분(성인·청소년·유소년) 통합/분리</b>를 선택할 수 있습니다.
+    <div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:10px">
+      회원제는 주횟수별 요금을 입력하면 결제금액 = 월요금 × 개월수(2·3달치)로 자동 계산됩니다.
+      금액은 <b style="color:var(--txt)">${unitLbl} 기준</b>으로 표시 중이며, 각 칸 아래에 반대 단위도 함께 보입니다.
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+      <span style="font-size:11px;color:var(--txt3);font-weight:700">표시 단위</span>
+      <div style="display:flex;background:var(--bg2);border:1px solid var(--bdr);border-radius:9px;padding:2px;gap:2px">
+        <button onclick="setPriceView('month')" style="border:none;cursor:pointer;font-size:12px;font-weight:700;padding:6px 14px;border-radius:7px;background:${priceView==='month'?'var(--grn)':'transparent'};color:${priceView==='month'?'#fff':'var(--txt2)'}">월 요금</button>
+        <button onclick="setPriceView('session')" style="border:none;cursor:pointer;font-size:12px;font-weight:700;padding:6px 14px;border-radius:7px;background:${priceView==='session'?'var(--grn)':'transparent'};color:${priceView==='session'?'#fff':'var(--txt2)'}">회당 요금</button>
+      </div>
     </div>
     <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:11px 12px;margin-top:12px">
       <div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">결제 개월 할인 (%)
@@ -1691,7 +1713,7 @@ function openMemberDetail(id){
         </div>
       </div>`;})():''}
     <div class="info-grid">
-      ${[['결제 단위',feeUnit(m)],['반',m.group],['담당 코치',m.coach],['등록일',m.joinDate],['할인율',discPct(m)+'%'],[feeUnit(m)+' 요금',W(memberFee(m))]].map(([k,v])=>`
+      ${[['결제 단위',feeUnit(m)],['반',m.group],['담당 코치',m.coach],['등록일',m.joinDate],['할인율',discPct(m)+'%'],...(isMembership(m.ltype)?[['회당 요금',W(Math.round(memberFee(m)/(totalSessions(m)||1)))]]:[]),[feeUnit(m)+' 요금',W(memberFee(m))]].map(([k,v])=>`
         <div class="info-cell">
           <div class="info-lbl">${k}</div>
           <div class="info-val" ${k.endsWith('요금')?'style="color:var(--grn)"':(k==='할인율'&&discPct(m)>0?'style="color:var(--org)"':'')}>${h(v)}</div>

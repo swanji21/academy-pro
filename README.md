@@ -10,6 +10,7 @@ EZRA FOOTBALL CLUB 운영을 위한 모바일 우선 PWA. 회원 관리, 출석 
 - **회원제** — 개인레슨 / 그룹레슨, **성인·청소년·유소년** 구분, **주1~5회**, **2달치 또는 3달치** 결제
 - **비회원제** — 원포인트레슨, **1일(1회)** 결제
 - **주횟수별 월 요금** — 회원제는 구분 × **주1~5회별 월 요금**을 입력하면 결제금액 = 월요금 × 개월수(2·3달치)로 자동 계산 (주변 아카데미처럼 횟수 늘수록 할인가 반영 가능)
+- **월/회당 요금 보기** — 요금표를 **월 요금 ⇄ 회당(1일) 요금**으로 전환해 입력·확인(각 칸에 반대 단위도 표시), 회원 상세엔 **회당 요금**도 함께 표기
 - **구분 통합/분리** — 수강별로 성인·청소년·유소년을 하나의 요금으로 **통합**하거나 각각 **분리**해서 설정
 - **할인율** — **결제 개월별 할인**(요금표에서 2·3달치 %)과 **회원별 할인**(등록·수정 시 %)을 함께 적용(합산)
 - **전부 편집 가능** — 수업료 화면의 **⚙️ 설정**에서 **수강 목록·수강반·코치·요금**을 자유롭게
@@ -156,6 +157,7 @@ lesson schedules, and tuition from a single screen. It runs from one
 - **Membership** — personal / group lessons, **adult · teen · youth** categories, **1–5×/week**, paid per **2 or 3 months**
 - **Non-membership** — one-point lesson, paid **per day (single session)**
 - **Per-frequency monthly pricing** — enter a **monthly price for each 1–5×/week tier** per category; the charge is monthly price × months (2 or 3), so volume discounts for more sessions can be set like nearby academies
+- **Monthly ⇄ per-session view** — toggle the price table between **monthly and per-session (daily)** amounts (each cell shows the other unit too); member detail also shows the **per-session fee**
 - **Unified or split categories** — each lesson can share one price across adult/teen/youth (**unified**) or set them **separately**
 - **Discounts** — **term discounts** (per 2/3-month %, in the price editor) and **per-member discounts** (% at registration), applied together (additive)
 - **Fully editable** — under **⚙️ Settings** on the Tuition screen, freely add / edit / delete
