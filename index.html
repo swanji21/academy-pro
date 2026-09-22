@@ -620,6 +620,7 @@ const DEFAULT_CONFIG = {
   groups: ['A반(월수)','B반(화목)','C반(주말)','D반(월수금)','E반(토일)'],
   coaches: ['김코치','박코치','이코치'],
   termDiscount: { '2':0, '3':0 },   // 결제 개월별 할인율(%) — 회원제 공통
+  defaultTerm: '2',                 // 신규 회원 기본 결제 개월 (2달치/3달치)
   // 회원제 요금 = 구분 × 주횟수(f1~f5)별 "월 요금". 결제금액 = 월요금 × 개월수(2·3달치).
   // 그룹레슨 기본값은 주변 아카데미 시세(유소년 주1~4회 9/16/22/27만) 참고.
   pricing: {
@@ -666,6 +667,7 @@ function normalizeCfg(){
   if(!Array.isArray(cfg.coaches) || !cfg.coaches.length) cfg.coaches = DEFAULT_CONFIG.coaches.slice();
   if(!cfg.termDiscount || typeof cfg.termDiscount!=='object') cfg.termDiscount = {'2':0,'3':0};
   TERMS.forEach(t=>{ if(typeof cfg.termDiscount[t]!=='number') cfg.termDiscount[t]=0; });
+  if(TERMS.indexOf(cfg.defaultTerm)<0) cfg.defaultTerm='2';
   if(!cfg.pricing || typeof cfg.pricing!=='object') cfg.pricing = {};
   cfg.ltypes.forEach(t=>{
     const cur = cfg.pricing[t.name] || {};
@@ -1446,11 +1448,21 @@ function openSettings(){
       <span>👤 코치 편집</span><span style="color:var(--txt3);font-weight:400">${cfg.coaches.length}명 ›</span></button>
     <button class="btn btn-g" style="width:100%;justify-content:space-between" onclick="openPriceEditor()">
       <span>💰 요금표 편집</span><span style="opacity:.8;font-weight:400">주횟수별 ›</span></button>
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:12px 13px;margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--txt)">기본 결제 개월</div>
+        <div style="font-size:11px;color:var(--txt3)">신규 회원 등록 시 기본 선택값</div>
+      </div>
+      <div style="display:flex;background:var(--bg);border:1px solid var(--bdr);border-radius:9px;padding:2px;gap:2px;flex-shrink:0">
+        ${TERMS.map(t=>`<button onclick="setDefaultTerm('${t}')" style="border:none;cursor:pointer;font-size:12px;font-weight:700;padding:6px 13px;border-radius:7px;background:${cfg.defaultTerm===t?'var(--grn)':'transparent'};color:${cfg.defaultTerm===t?'#fff':'var(--txt2)'}">${t}달치</button>`).join('')}
+      </div>
+    </div>
     <div class="f-actions" style="margin-top:16px">
       <button class="btn btn-s" style="flex:1" onclick="closeSheet()">닫기</button>
     </div>
   `);
 }
+function setDefaultTerm(v){ cfg.defaultTerm=v; persist(); openSettings(); toast2(v+'달치를 기본 결제로 설정'); }
 
 /* 수강 목록(유형) 편집 */
 let _et=null;
@@ -1756,7 +1768,7 @@ function openMemberForm(id){
       <div class="fg" id="wrapFreq"><label class="fl">주횟수</label>
         <select class="fi" id="ffreq" onchange="recalcFee()">${FREQS.map(f=>`<option value="${f}" ${String(m?.freq||1)===String(f)?'selected':''}>주${f}회</option>`).join('')}</select></div>
       <div class="fg" id="wrapTerm"><label class="fl">결제</label>
-        <select class="fi" id="fterm" onchange="recalcFee()">${TERMS.map(t=>`<option value="${t}" ${(m?.term||'2')===t?'selected':''}>${t}달치</option>`).join('')}</select></div>
+        <select class="fi" id="fterm" onchange="recalcFee()">${TERMS.map(t=>`<option value="${t}" ${(m?.term||cfg.defaultTerm||'2')===t?'selected':''}>${t}달치</option>`).join('')}</select></div>
     </div>
     <div class="frow">
       <div class="fg"><label class="fl">반</label>
@@ -1809,7 +1821,7 @@ function saveMember(id){
   if(!name){toast2('이름을 입력하세요','err');return;}
   const data={name,phone:$('fp')?.value||'',birth:$('fb')?.value||'',
     ltype:$('fty')?.value||ltypeNames()[0],cat:$('fcat')?.value||'성인',
-    freq:parseInt($('ffreq')?.value||'1')||1,term:$('fterm')?.value||'2',
+    freq:parseInt($('ffreq')?.value||'1')||1,term:$('fterm')?.value||cfg.defaultTerm||'2',
     discount:Math.max(0,Math.min(100, parseInt($('fdisc')?.value||'0')||0)),
     group:$('fg_')?.value||cfg.groups[0],
     pos:$('fpos')?.value||'없음',coach:$('fco')?.value||cfg.coaches[0],
