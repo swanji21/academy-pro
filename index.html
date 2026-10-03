@@ -1406,24 +1406,30 @@ function openExport(){
   const payload=academyExportPayload();
   const json=JSON.stringify(payload);
   showSheet('EZRA FM으로 내보내기',`
-    <div style="font-size:12px;color:var(--txt2);line-height:1.65;margin-bottom:12px">
-      회원 <b style="color:var(--txt)">${payload.players.length}명</b>의 <b style="color:var(--txt)">이름·포지션·생년월일</b>을 내보냅니다.<br>
-      EZRA FM(매니저 앱)에서 <b style="color:var(--txt)">☰ → 아카데미 회원 불러오기</b>에 아래 내용을 붙여넣으면 선수로 등록됩니다.
-      <span style="color:var(--txt3)">(능력치는 FM에서 입력)</span>
+    <div style="background:var(--bg2);border:1px solid var(--bdr);border-radius:12px;padding:16px;text-align:center;margin-bottom:14px">
+      <div style="font-size:30px;margin-bottom:6px">📤</div>
+      <div style="font-size:16px;font-weight:800;color:var(--txt);margin-bottom:4px">회원 ${payload.players.length}명</div>
+      <div style="font-size:12px;color:var(--txt2);line-height:1.6">
+        아래 <b style="color:var(--txt)">복사</b>를 누른 뒤,<br>
+        EZRA FM에서 <b style="color:var(--txt)">아카데미 회원 불러오기 → 📋 클립보드에서 붙여넣기</b>를 누르세요.
+      </div>
     </div>
-    <textarea id="expText" readonly onclick="this.select()"
-      style="width:100%;height:150px;font-size:11px;font-family:monospace;background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:9px;padding:10px;resize:none">${h(json)}</textarea>
-    <div class="f-actions" style="margin-top:12px">
+    <button class="btn btn-g" style="width:100%;font-size:16px;padding:14px" onclick="copyExport()">📋 클립보드에 복사</button>
+    <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-s" style="flex:1" onclick="downloadExport()">파일로 저장</button>
-      <button class="btn btn-g" style="flex:2" onclick="copyExport()">📋 복사</button>
+      <button class="btn btn-s" style="flex:1" onclick="toggleExportJson()">내용 보기</button>
     </div>
+    <textarea id="expText" readonly onclick="this.select()" hidden
+      style="width:100%;height:140px;font-size:11px;font-family:monospace;background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr);border-radius:9px;padding:10px;resize:none;margin-top:10px">${h(json)}</textarea>
   `);
 }
+function toggleExportJson(){ const t=$('expText'); if(t){ t.hidden=!t.hidden; if(!t.hidden) t.select(); } }
 function copyExport(){
-  const t=$('expText'); if(!t) return; t.select();
-  const done=()=>toast2('복사되었습니다 · FM에 붙여넣으세요');
-  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(done).catch(()=>{try{document.execCommand('copy');done();}catch(e){toast2('복사 실패 — 길게 눌러 복사하세요','err');}});
-  else { try{document.execCommand('copy');done();}catch(e){toast2('복사 실패 — 길게 눌러 복사하세요','err');} }
+  const t=$('expText'); if(!t) return;
+  const done=()=>toast2('복사됨 · FM에서 클립보드에서 붙여넣기');
+  const fallback=()=>{ const wasHidden=t.hidden; t.hidden=false; t.select(); try{document.execCommand('copy');done();}catch(e){toast2('복사 실패 — 내용 보기로 길게 눌러 복사','err');} t.hidden=wasHidden; };
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(done).catch(fallback);
+  else fallback();
 }
 function downloadExport(){
   const t=$('expText'); if(!t) return;
