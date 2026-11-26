@@ -6,12 +6,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="EZRA FC">
-<meta name="theme-color" content="#07090f">
-<link rel="icon" type="image/png" href="favicon.png" />
+<meta name="theme-color" content="#16428a">
+<link rel="icon" type="image/png" href="crest.png" />
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <title>EZRA FOOTBALL CLUB</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
 /* ── Reset & Base ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -22,8 +25,8 @@ html{
 }
 body{
   font-family:'Noto Sans KR',sans-serif;
-  background:#07090f;
-  color:#e6ecf8;
+  background:var(--bg);
+  color:var(--txt);
   /* dvh = dynamic viewport height (excludes Safari toolbar).
      Order matters: the vh fallback MUST come first so that on
      browsers supporting dvh the later dvh declaration wins. */
@@ -38,24 +41,28 @@ body{
 
 /* ── CSS Variables ── */
 :root{
-  --bg:#07090f;
-  --bg2:#0c1018;
-  --surf:#111620;
-  --surf2:#171e2c;
-  --surf3:#1d2638;
-  --bdr:#1f2d40;
-  --bdr2:#2a3c52;
-  --txt:#e6ecf8;
-  --txt2:#7a8fa8;
-  --txt3:#3d5068;
-  --grn:#22c55e;
-  --grn2:#16a34a;
-  --grn3:#052e16;
-  --org:#f97316;
-  --red:#ef4444;
-  --blu:#3b82f6;
-  --ylw:#eab308;
-  --pur:#a855f7;
+  /* ── EZRA FOOTBALL CLUB brand — royal blue + gold, light ── */
+  --bg:#f6f5f2;
+  --bg2:#eef0f4;
+  --surf:#ffffff;
+  --surf2:#f4f6f9;
+  --surf3:#e9edf3;
+  --bdr:#e6e2db;
+  --bdr2:#d6d2ca;
+  --txt:#14223b;
+  --txt2:#5b6b82;
+  --txt3:#93a0b3;
+  --grn:#16428a;   /* primary = royal blue */
+  --grn2:#1b50a8;
+  --grn3:#eef3fb;  /* soft blue surface (was dark-green bg) */
+  --org:#e8711c;
+  --red:#d8443a;
+  --blu:#2a66c9;
+  --ylw:#d9a406;
+  --pur:#8b5cf6;
+  --gold:#f5b133;  /* brand gold accent */
+  --gold2:#e09a22;
+  --gold-soft:#fdf3dd;
   /* Safe areas for iPhone notch/home bar */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -84,8 +91,8 @@ body{
 /* ── Header ── */
 #hdr{
   height:var(--hdr-h);
-  background:var(--surf);
-  border-bottom:1px solid var(--bdr);
+  background:var(--grn);
+  border-bottom:3px solid var(--gold);
   display:flex;
   align-items:center;
   padding:0 16px;
@@ -94,17 +101,16 @@ body{
   position:relative;
   z-index:20;
 }
-.hdr-logo{
-  font-family:'Bebas Neue',sans-serif;
-  font-size:20px;
-  letter-spacing:3px;
-  color:var(--grn);
-  flex-shrink:0;
-}
+.hdr-logo{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.hdr-logo .crest{width:32px;height:32px;flex:0 0 auto;display:block;border-radius:50%}
+.hdr-logo .lg-tx{display:flex;flex-direction:column;line-height:1}
+.hdr-logo .lg-tx b{font-weight:900;font-size:13px;color:#fff;letter-spacing:.2px}
+.hdr-logo .lg-tx i{font-family:'DM Mono',monospace;font-style:normal;font-size:7.5px;letter-spacing:1.6px;color:var(--gold);margin-top:3px}
 .hdr-title{
-  font-family:'Bebas Neue',sans-serif;
-  font-size:20px;
-  letter-spacing:2px;
+  font-family:'DM Serif Display',sans-serif;
+  font-size:21px;
+  letter-spacing:1px;
+  color:#fff;
   position:absolute;
   left:50%;
   transform:translateX(-50%);
@@ -119,8 +125,8 @@ body{
   margin-left:auto;      /* pushes sync + hdr-right group to the right */
   display:flex;align-items:center;justify-content:center;
   width:34px;height:34px;flex-shrink:0;
-  border:1px solid var(--bdr);border-radius:9px;
-  background:var(--surf2);color:var(--txt2);
+  border:1px solid rgba(255,255,255,.25);border-radius:9px;
+  background:rgba(255,255,255,.14);color:#fff;
   font-size:15px;line-height:1;cursor:pointer;
   -webkit-tap-highlight-color:transparent;
   transition:opacity .12s,border-color .15s;
@@ -236,7 +242,7 @@ body{
 }
 .stat-ico{font-size:18px;margin-bottom:6px}
 .stat-lbl{font-size:9px;color:var(--txt3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px}
-.stat-val{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;letter-spacing:1px}
+.stat-val{font-family:'DM Serif Display',sans-serif;font-size:26px;line-height:1;letter-spacing:1px}
 .stat-sub{font-size:10px;color:var(--txt3);margin-top:3px}
 
 /* ── Section ── */
@@ -247,7 +253,7 @@ body{
 .mrow{
   display:flex;align-items:center;gap:11px;
   padding:12px 16px;
-  border-bottom:1px solid rgba(31,45,64,.6);
+  border-bottom:1px solid var(--bdr);
   cursor:pointer;
   /* Active state for iOS (no :hover) */
   -webkit-tap-highlight-color:rgba(22,163,74,.06);
@@ -300,7 +306,7 @@ body{
   -webkit-tap-highlight-color:transparent;
   transition:all .12s;
 }
-.chip.on{background:rgba(34,197,94,.1);color:var(--grn);border-color:rgba(34,197,94,.25)}
+.chip.on{background:rgba(22,66,138,.09);color:var(--grn);border-color:rgba(22,66,138,.25)}
 
 /* ── Progress ── */
 .prog-wrap{display:flex;align-items:center;gap:6px;margin-top:4px}
@@ -316,8 +322,8 @@ body{
   transition:border-color .12s,background .12s;
 }
 .att-card:active{opacity:.75}
-.att-card.present{background:rgba(5,46,22,.7);border-color:#14532d}
-.att-card.late{background:rgba(28,23,0,.7);border-color:#713f12}
+.att-card.present{background:#eaf1fb;border-color:#9ec0ee}
+.att-card.late{background:#fdf3dd;border-color:#eacb8f}
 .att-status{font-size:12px;font-weight:700}
 .att-status.present{color:var(--grn)}
 .att-status.late{color:var(--ylw)}
@@ -328,7 +334,7 @@ body{
   display:flex;justify-content:space-between;align-items:center;
   padding:12px 16px;border-bottom:1px solid var(--bdr);
 }
-.cal-month-lbl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px}
+.cal-month-lbl{font-family:'DM Serif Display',sans-serif;font-size:20px;letter-spacing:0;white-space:nowrap}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:8px 8px 6px}
 .cal-wday{text-align:center;font-size:9px;color:var(--txt3);padding:5px 0;font-weight:700;letter-spacing:.5px}
 .cal-day{
@@ -339,8 +345,8 @@ body{
   padding:3px 2px;overflow:hidden;
 }
 .cal-day:active{background:var(--surf2)}
-.cal-day.is-today{background:rgba(34,197,94,.08)}
-.cal-day.is-sel{background:rgba(34,197,94,.16);box-shadow:inset 0 0 0 1px rgba(34,197,94,.35)}
+.cal-day.is-today{background:rgba(245,177,51,.16)}
+.cal-day.is-sel{background:rgba(22,66,138,.12);box-shadow:inset 0 0 0 1px rgba(22,66,138,.35)}
 .cal-dn{font-size:11px;font-weight:500;line-height:1;margin-bottom:2px;text-align:center;flex-shrink:0}
 .cal-day.is-today .cal-dn{color:var(--grn);font-weight:700}
 .cal-day.is-sel .cal-dn{color:var(--grn)}
@@ -398,8 +404,8 @@ body{
   -webkit-tap-highlight-color:transparent;
 }
 .pay-card:active{opacity:.75}
-.pay-card.paid{background:rgba(5,46,22,.65);border-color:#14532d}
-.pay-card.unpaid{background:rgba(26,10,10,.65);border-color:#7f1d1d}
+.pay-card.paid{background:#eaf1fb;border-color:#9ec0ee}
+.pay-card.unpaid{background:#fbeceb;border-color:#f0b6b1}
 
 /* ── Bottom Sheet ── */
 .sheet-overlay{
@@ -509,7 +515,7 @@ body{
   box-shadow:0 8px 28px rgba(0,0,0,.4);
 }
 .toast.show{opacity:1;transform:translateY(0)}
-.toast.ok{color:var(--grn);border-color:rgba(34,197,94,.25)}
+.toast.ok{color:var(--grn);border-color:rgba(22,66,138,.25)}
 .toast.err{color:var(--red);border-color:rgba(239,68,68,.25)}
 
 /* ── Animations ── */
@@ -562,7 +568,14 @@ body{
 <body>
 <div id="shell">
   <header id="hdr">
-    <div class="hdr-logo">⚽ EZRA FC</div>
+    <div class="hdr-logo">
+      <img class="crest" src="crest.png" alt="EZRA FC" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <svg class="crest" viewBox="0 0 100 100" style="display:none" aria-label="EZRA FC">
+        <circle cx="50" cy="50" r="48" fill="#16428a" stroke="#f5b133" stroke-width="3"/>
+        <circle cx="50" cy="50" r="33" fill="#f5b133"/>
+        <path d="M38 34 h18 a12 12 0 0 1 0 24 h-7 v10" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
     <div class="hdr-title" id="hdrTitle">대시보드</div>
     <button class="sync-btn" id="syncBtn" onclick="openSyncSheet()" title="기기 동기화">☁️</button>
     <div class="hdr-right" id="hdrRight"></div>
@@ -602,7 +615,7 @@ const FREQS   = [1,2,3,4,5];            // 주 N회
 const WEEKS_PER_MONTH = 4;              // 1달 = 4주 (총 횟수 산정 기준)
 const POS     = ['FW','MF','DF','GK','없음'];
 const STATS   = ['활성','휴강','대기'];
-const STC     = {활성:'#22c55e',휴강:'#f97316',대기:'#6b7280'};
+const STC     = {활성:'#16428a',휴강:'#e8711c',대기:'#93a0b3'};
 const LTC_PAL = ['#3b82f6','#22c55e','#f97316','#a855f7','#ef4444','#06b6d4','#eab308','#ec4899'];
 const ECOLS   = ['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444','#06b6d4'];
 const ETITLES = ['정규 레슨','개인 레슨','그룹 레슨','전술 훈련','체력 훈련','대회 준비'];
@@ -977,10 +990,10 @@ function vDash(){
     .sort((a,b)=>a.du-b.du);
   return`
 <div class="hscroll">
-  ${sc('👥','전체 회원',s.total+'명','활성 '+s.active+'명','#3b82f6')}
-  ${sc('✅','오늘 출석',s.todayAtt+'명','평균 '+s.avgAtt+'%','#22c55e')}
-  ${sc('💳','납부 완료',s.paidCnt+'명',W(s.revenue),'#a855f7')}
-  ${sc('⚠️','미납',s.unpaidCnt+'명',W(s.pending),'#f97316')}
+  ${sc('👥','전체 회원',s.total+'명','활성 '+s.active+'명','#16428a')}
+  ${sc('✅','오늘 출석',s.todayAtt+'명','평균 '+s.avgAtt+'%','#1f9d55')}
+  ${sc('💳','납부 완료',s.paidCnt+'명',W(s.revenue),'#e09a22')}
+  ${sc('⚠️','미납',s.unpaidCnt+'명',W(s.pending),'#d8443a')}
 </div>
 <div class="sec">
   ${payDue.length?`<div class="card" style="padding:14px 15px;margin-bottom:12px;border:1px solid rgba(249,115,22,.35)">
@@ -989,7 +1002,7 @@ function vDash(){
       const overdue=du<0, soon=du<=7;
       const col=overdue?'var(--red)':soon?'var(--org)':'var(--txt2)';
       const tag=overdue?`${-du}일 지남`:du===0?'오늘':`D-${du}`;
-      return `<div onclick="openMemberDetail('${m.id}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(31,45,64,.5);cursor:pointer">
+      return `<div onclick="openMemberDetail('${m.id}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid rgba(20,34,59,.08);cursor:pointer">
         <div style="min-width:0"><span style="font-size:13px;font-weight:700">${h(m.name)}</span>
           <span style="font-size:10px;color:var(--txt3)"> · ${h(m.ltype)}${isMembership(m.ltype)?' '+h(m.cat):''}</span>
           <div style="font-size:10px;color:var(--txt3)">잔여 <b style="color:${rem<=2?'var(--red)':'var(--txt2)'}">${rem}회</b> · 결제일 ${np}</div></div>
@@ -1002,7 +1015,7 @@ function vDash(){
       const cnt=members.filter(m=>m.group===g).length;
       const pd=members.filter(m=>m.group===g&&m.paid).length;
       const pct=members.length?(cnt/members.length)*100:0;
-      const gc=['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444'][gi];
+      const gc=['#16428a','#f5b133','#2a66c9','#e09a22','#8b5cf6'][gi];
       return`<div style="margin-bottom:11px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px">
           <span style="color:var(--txt2)">${g}</span>
@@ -1026,11 +1039,11 @@ function vDash(){
       <div class="sec-title">레슨 모집 현황</div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:${recr.length?'10px':'0'}">
         <span class="rec-badge" style="background:#f9731622;color:#f97316">모집중 ${recr.length}</span>
-        <span class="rec-badge" style="background:#22c55e22;color:#22c55e">개강 확정 ${conf}</span>
+        <span class="rec-badge" style="background:#16428a1a;color:#16428a">개강 확정 ${conf}</span>
         ${full?`<span class="rec-badge" style="background:#6b728022;color:#6b7280">마감 ${full}</span>`:''}
       </div>
       ${recr.slice(0,6).map(e=>{const st=evStatus(e);const need=Math.max(0,(+e.min||0)-evEnrolled(e));const p=e.date.split('-');
-        return `<div onclick="go('schedule')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(31,45,64,.5);cursor:pointer">
+        return `<div onclick="go('schedule')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(20,34,59,.08);cursor:pointer">
           <div style="min-width:0"><span style="font-size:12px;color:var(--txt3)">${+p[1]}/${+p[2]}</span> <span style="font-size:13px;font-weight:600">${h(e.title)}</span></div>
           <span style="font-size:11px;color:var(--org);font-weight:700;flex-shrink:0;white-space:nowrap">${st.txt} · ${need}명 더</span>
         </div>`;}).join('')}
@@ -1222,7 +1235,7 @@ function evStatus(e){
   if(!min && !cap) return null;
   const denom = min || cap;
   if(cap && cur>=cap)      return {label:'마감',     color:'#6b7280', txt:`${cur}/${cap}`};
-  if(min && cur>=min)      return {label:'개강 확정', color:'#22c55e', txt:`${cur}/${denom}`};
+  if(min && cur>=min)      return {label:'개강 확정', color:'#16428a', txt:`${cur}/${denom}`};
   return {label:'모집중', color:'#f97316', txt:`${cur}/${denom}`};
 }
 function vSched(){
@@ -1324,7 +1337,7 @@ function openEvtAttend(id){
         <div style="min-width:0"><div style="font-size:13px;font-weight:700">${h(m.name)}</div>
           <div style="font-size:10px;color:var(--txt3)">${h(m.ltype)}${isMembership(m.ltype)?' · '+h(m.cat):''}</div></div>
       </div>
-      <div style="display:flex;gap:6px">${btn('present','출석 ✓','#22c55e')}${btn('late','지각 !','#f97316')}${abBtn}</div>
+      <div style="display:flex;gap:6px">${btn('present','출석 ✓','#16428a')}${btn('late','지각 !','#f97316')}${abBtn}</div>
     </div>`;
   }).join('');
   showSheet(`출석 · ${e.title}`,`
@@ -1352,7 +1365,7 @@ function vPay(){
   const pr=members.length?~~((s.paidCnt/members.length)*100):0;
   return`
 <div class="hscroll">
-  ${sc('✅','납부 완료',W(s.revenue),s.paidCnt+'명','#22c55e')}
+  ${sc('✅','납부 완료',W(s.revenue),s.paidCnt+'명','#16428a')}
   ${sc('❌','미납',W(s.pending),s.unpaidCnt+'명','#f97316')}
   ${sc('📊','납부율',pr+'%',`${s.paidCnt}/${s.total}명`,'#a855f7')}
 </div>
@@ -1362,10 +1375,10 @@ function vPay(){
     ${cfg.groups.map((g,gi)=>{
       const gm=members.filter(m=>m.group===g);
       const pd=gm.filter(m=>m.paid).length;
-      const gc=['#22c55e','#3b82f6','#f97316','#a855f7','#ef4444'][gi];
+      const gc=['#16428a','#f5b133','#2a66c9','#e09a22','#8b5cf6'][gi];
       return`<div class="stat-card" style="border-top:2px solid ${gc};min-width:100px;padding:10px 12px">
         <div style="font-size:9px;color:var(--txt3);margin-bottom:3px">${h(g)}</div>
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:${gc}">${pd}/${gm.length}</div>
+        <div style="font-family:'DM Serif Display',sans-serif;font-size:22px;color:${gc}">${pd}/${gm.length}</div>
         <div style="font-size:9px;color:var(--txt3)">${gm.length?~~(pd/gm.length*100):0}%</div>
       </div>`;
     }).join('')}
@@ -1787,7 +1800,7 @@ function openMemberDetail(id){
       return `<div style="display:flex;gap:10px;padding:0 16px 4px">
         <div style="flex:1;background:var(--bg2);border-radius:10px;padding:11px 12px">
           <div style="font-size:10px;color:var(--txt3);margin-bottom:4px">남은 횟수</div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${remCol}">${rem}<span style="font-size:13px;color:var(--txt3)"> / ${tot}회</span></div>
+          <div style="font-family:'DM Serif Display',sans-serif;font-size:24px;color:${remCol}">${rem}<span style="font-size:13px;color:var(--txt3)"> / ${tot}회</span></div>
         </div>
         <div style="flex:1;background:var(--bg2);border-radius:10px;padding:11px 12px">
           <div style="font-size:10px;color:var(--txt3);margin-bottom:4px">다음 결제일</div>
@@ -1804,7 +1817,7 @@ function openMemberDetail(id){
       ${discPct(m)>0?`<div class="info-cell" style="grid-column:1/-1"><div class="info-lbl">할인 전 금액</div><div class="info-val" style="text-decoration:line-through;color:var(--txt3)">${W(baseFee(m))}</div></div>`:''}
     </div>
     <div style="padding:0 16px 8px">
-      <button class="pay-toggle" style="background:${m.paid?'rgba(34,197,94,.12)':'rgba(249,115,22,.12)'};color:${m.paid?'var(--grn)':'var(--org)'};"
+      <button class="pay-toggle" style="background:${m.paid?'rgba(22,66,138,.12)':'rgba(232,113,28,.12)'};color:${m.paid?'var(--grn)':'var(--org)'};"
         onclick="togglePaid('${m.id}');closeSheet();renderPage()">
         ${m.paid?'✓ 납부완료 — 취소하기':'⚠ 미납 — 납부 처리하기'}
       </button>
@@ -1857,7 +1870,7 @@ function openMemberForm(id){
       <div class="fg"><label class="fl">회원 할인 (%)</label>
         <input class="fi" type="number" inputmode="numeric" id="fdisc" value="${m?.discount||0}" oninput="recalcFee()"></div>
       <div class="fg"><label class="fl">결제 금액</label>
-        <div class="fi-fee"><div id="feeShow" style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--grn)"></div></div>
+        <div class="fi-fee"><div id="feeShow" style="font-family:'DM Serif Display',sans-serif;font-size:20px;color:var(--grn)"></div></div>
       </div>
     </div>
     <div class="fg"><label class="fl">메모</label>
